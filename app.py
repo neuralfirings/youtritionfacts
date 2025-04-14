@@ -27,9 +27,9 @@ logger = logging.getLogger(__name__)
 # RESULTS_FILE = "./results.json" # No longer needed
 
 # --- Streamlit App Logic ---
-st.set_page_config(layout="wide") # must be first st command
+st.set_page_config(layout="wide", page_icon="🤔") # must be first st command
 st.title("📺 YouTrition Facts")
-st.markdown("Paste a YouTube video link to analyze pacing, saturation, visual complexity, and more.")
+st.markdown("Paste a YouTube video link to analyze pacing, saturation, visual complexity, and more. I validated scene duration metrics by manually comparing a handful of videos. For the other metrics, I'll publish more detail on the code. Scroll down to see why I picked the metrics I picked.")
 
 youtube_url = st.text_input("🎥 YouTube URL")
 
@@ -154,7 +154,7 @@ if st.button("Run Analysis"):
 
 # Load and display results from GCS
 if gcs_client and gcs_bucket:
-    st.subheader("📊 Analysis")
+    st.subheader("📊 All Videos Analyzed")
     st.text("Color saturation and motion are normalized to 0 (low) - 100 (high)")
     results_data = load_results_gcs(gcs_client, gcs_bucket) # Load directly from GCS
 
@@ -205,8 +205,8 @@ if gcs_client and gcs_bucket:
         gb.configure_column("spm", hide=True, headerName="Scenes/Min")
         gb.configure_column("avgColorSaturation", headerName="Color Saturation")
         gb.configure_column("avgMotionDynamism", headerName="Motion")
-        gb.configure_column("avgObjectCount", headerName="Avg Objects")
-        gb.configure_column("maxObjectCount", headerName="Max Objects")
+        gb.configure_column("avgObjectCount", headerName="Objects on Screen (Avg)")
+        gb.configure_column("maxObjectCount", headerName="Objects on Screen (Max)")
         gb.configure_column("link", hide=True, headerName="URL")
         gb.configure_grid_options(domLayout='normal')
         gb.configure_pagination(paginationAutoPageSize=False, paginationPageSize=15)
@@ -227,6 +227,14 @@ if gcs_client and gcs_bucket:
             key='analysis_grid' # Add a key for stability,
         )
 
+        # citations
+        st.subheader("Citations")
+        st.text("Some research related to the metrics used here")
+        st.markdown("""* Re: __Average Scene Duration__ - [The Immediate Impact of Different Types of Television on Young Children's Executive Function](https://pmc.ncbi.nlm.nih.gov/articles/PMC9923845/#:~:text=Children%20who%20watched%20the%20fast,attention%2C%20age%2C%20and%20television%20exposure) (paper focuses on fast paced videos, with a priamry metric as scene duration)
+* Re: __Motion Dynamism__ Adding this metric since this is tangentially related to pacing
+* Re: __Color Saturation__ - [Disruptive Effects of Colorful vs. Non-colorful Play Area on Structured Play—A Pilot Study with Preschoolers](https://pmc.ncbi.nlm.nih.gov/articles/PMC5083879)
+* Re: __Number of Objects on Screen__ - [Effect of Repeated Exposure to the Visual Environment on Young Children's Attention](https://onlinelibrary.wiley.com/doi/10.1111/cogs.13093)
+""")
         with st.expander("📄 Raw JSON"):
             st.json(results_data) # Show the raw data loaded from GCS
     else:
