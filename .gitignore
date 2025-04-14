@@ -1,0 +1,9 @@
+/local
+.DS_Store
+**/.DS_Store
+.streamlit
+videos
+results*
+/venv
+/db
+/__pycache__
