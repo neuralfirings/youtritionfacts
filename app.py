@@ -198,11 +198,12 @@ if gcs_client and gcs_bucket:
         # title_link_renderer=JsCode('''function(params) {console.log(params);return `<a href="${params.data.link}" target="_blank">${params.value}>params.value</a>`}''')
         gb.configure_column("title", headerName="Title",
             cellRenderer=title_link_renderer,
-            maxWidth=500, #suppressSizeToFit=True
+            maxWidth=300, #suppressSizeToFit=True
+            resizable=True
         )
             # cellRendererParams={"innerRenderer": "html"}
         # )
-        gb.configure_column("duration", headerName="Video Length", resizable=False) #, cellRenderer=title_link_renderer)
+        gb.configure_column("duration", headerName="Video Length") #, cellRenderer=title_link_renderer)
         gb.configure_column("avgSceneDur", headerName="Avg Scene (sec)", sort='asc', sortIndex=0)
         gb.configure_column("numScenes", headerName="Scene Count")
         gb.configure_column("spm", hide=True, headerName="Scenes/Min")
