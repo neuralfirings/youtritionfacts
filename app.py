@@ -180,22 +180,22 @@ if gcs_client and gcs_bucket:
 
         gb = GridOptionsBuilder.from_dataframe(df)
         gb.configure_column("ytKey", hide=True)
-        title_link_renderer=JsCode("""
-            class UrlCellRenderer {
-            init(params) {
-                this.eGui = document.createElement('a');
-                this.eGui.innerText = params.value;
-                this.eGui.setAttribute('href', params.data.link);
-                this.eGui.setAttribute('target', '_blank');
-                this.eGui.setAttribute('style', 'text-decoration:none; color:#2a5bd7;');
-            }
-            getGui() {
-                return this.eGui;
-            }
-            }
-            """
-        )
-        # title_link_renderer=JsCode('''function(params) {console.log(params);return `<a href="${params.data.link}" target="_blank">${params.value}>params.value</a>`}''')
+        # title_link_renderer=JsCode("""
+        #     class UrlCellRenderer {
+        #     init(params) {
+        #         this.eGui = document.createElement('a');
+        #         this.eGui.innerText = params.value;
+        #         this.eGui.setAttribute('href', params.data.link);
+        #         this.eGui.setAttribute('target', '_blank');
+        #         this.eGui.setAttribute('style', 'text-decoration:none; color:#2a5bd7;');
+        #     }
+        #     getGui() {
+        #         return this.eGui;
+        #     }
+        #     }
+        #     """
+        # )
+        title_link_renderer=JsCode('''function(params) {console.log(params);return `<a href="${params.data.link}" target="_blank">${params.value}>params.value</a>`}''')
         gb.configure_column("title", headerName="Title",
             cellRenderer=title_link_renderer,
             maxWidth=300, #suppressSizeToFit=True
