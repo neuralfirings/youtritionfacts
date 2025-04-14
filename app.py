@@ -154,6 +154,7 @@ if st.button("Run Analysis"):
 
 # Load and display results from GCS
 if gcs_client and gcs_bucket:
+    st.markdown("---")
     st.subheader("📊 All Videos Analyzed")
     st.text("Color saturation and motion are normalized to 0 (low) - 100 (high)")
     results_data = load_results_gcs(gcs_client, gcs_bucket) # Load directly from GCS
@@ -221,6 +222,8 @@ return this.eGui;
 
         gridOptions = gb.build()
 
+        search_query = st.text_input("🔍 Search Videos", "")
+        gridOptions['quickFilterText'] = search_query
         AgGrid(
             df, # Pass the original df with 'link' column
             gridOptions=gridOptions,
@@ -231,10 +234,11 @@ return this.eGui;
             height=500,
             width='100%',
             reload_data=True, # Important to reflect changes after analysis run + rerun
-            key='analysis_grid' # Add a key for stability,
+            key='analysis_grid', # Add a key for stability,
         )
 
         # citations
+        st.markdown("---")
         st.subheader("Citations")
         st.text("Some research related to the metrics used here")
         st.markdown("""* Re: __Average Scene Duration__ - [The Immediate Impact of Different Types of Television on Young Children's Executive Function](https://pmc.ncbi.nlm.nih.gov/articles/PMC9923845/#:~:text=Children%20who%20watched%20the%20fast,attention%2C%20age%2C%20and%20television%20exposure) (paper focuses on fast paced videos, with a priamry metric as scene duration)
