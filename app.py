@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 # RESULTS_FILE = "./results.json" # No longer needed
 
 # --- Streamlit App Logic ---
-st.set_page_config(layout="wide", page_icon="🤔") # must be first st command
+st.set_page_config(layout="wide", page_icon="🤔", page_title="YouTrition Facts") # must be first st command
 st.title("📺 YouTrition Facts")
 st.markdown("Paste a YouTube video link to analyze pacing, saturation, visual complexity, and more. I validated scene duration metrics by manually comparing a handful of videos. For the other metrics, I'll publish more detail on the code. Scroll down to see why I picked the metrics I picked.")
 
