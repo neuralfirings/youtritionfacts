@@ -195,7 +195,7 @@ if gcs_client and gcs_bucket:
         #     }
         #     """
         # )
-        title_link_renderer=JsCode('''function(params) {console.log(params);return `<a href="${params.data.link}" target="_blank">${params.value}>params.value</a>`}''')
+        title_link_renderer=JsCode('''function(params) {console.log(params);if(params.data.link != undefined) { return `<a href="${params.data.link}" target="_blank">${params.value}</a>`} else { return params.value }}''')
         gb.configure_column("title", headerName="Title",
             cellRenderer=title_link_renderer,
             maxWidth=300, #suppressSizeToFit=True
