@@ -115,7 +115,7 @@ def run_analysis_workflow(url, client, bucket):
             results.append(new_analysis_db_item) 
             logger.info(f"Appended new entry for {url_key}")
 
-        print(f"new results: {results}")
+        # print(f"new results: {results}")
 
         # 5. Save updated results to GCS
         status_placeholder.info("💾 Saving updated results to GCS...")
@@ -144,11 +144,12 @@ if st.button("Run Analysis"):
 
         if success:
             st.success("Analysis complete!")
+            st.text("Refresh page to see this result updated in table below")
             if analysis_output:
                  st.subheader("Latest Analysis Results:")
                  st.json(analysis_output) # Display the results of the run
             # Force rerun to reload the results grid from GCS
-            st.rerun()
+            # st.rerun()
         # Error messages are handled within run_analysis_workflow
 
 
