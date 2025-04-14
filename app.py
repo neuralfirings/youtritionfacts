@@ -143,14 +143,12 @@ if st.button("Run Analysis"):
         success, analysis_output = run_analysis_workflow(youtube_url, gcs_client, gcs_bucket)
 
         if success:
-            st.success("Analysis complete!")
-            st.text("Refresh page to see this result updated in table below")
+            st.success("Analysis complete! Refresh page to see this result updated in table below.")
             if analysis_output:
-                 st.subheader("Latest Analysis Results:")
-                 st.json(analysis_output) # Display the results of the run
+                 st.json({"analysisReport": analysis_output}) # Display the results of the run
             # Force rerun to reload the results grid from GCS
             # st.rerun()
-        # Error messages are handled within run_analysis_workflow
+        # Error messages are handled within     run_analysis_workflow
 
 
 # Load and display results from GCS
