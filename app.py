@@ -170,7 +170,7 @@ if gcs_client and gcs_bucket:
             'avgColorSaturation',
             'avgMotionDynamism',
             'avgObjectCount',
-            'maxObjectCount'
+            'maxObjectCount', 'link'
         ]
 
         df = df[column_order]
@@ -195,10 +195,13 @@ if gcs_client and gcs_bucket:
             }
             """
         )
-        gb.configure_column("title", headerName="Title", maxWidth=200, suppressSizeToFit=True,
+        # title_link_renderer=JsCode('''function(params) {console.log(params);return `<a href="${params.data.link}" target="_blank">${params.value}>params.value</a>`}''')
+        gb.configure_column("title", headerName="Title",
             cellRenderer=title_link_renderer,
-            cellRendererParams={"innerRenderer": "html"}
+            maxWidth=500, #suppressSizeToFit=True
         )
+            # cellRendererParams={"innerRenderer": "html"}
+        # )
         gb.configure_column("duration", headerName="Video Length", resizable=False) #, cellRenderer=title_link_renderer)
         gb.configure_column("avgSceneDur", headerName="Avg Scene (sec)", sort='asc', sortIndex=0)
         gb.configure_column("numScenes", headerName="Scene Count")
