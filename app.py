@@ -69,7 +69,7 @@ def run_analysis_workflow(url, client, bucket):
 
     try:
         # 1. Download/Upload Video
-        status_placeholder.info(f"🔄 Checking/Downloading video '{url_key}'...")
+        status_placeholder.info(f"🔄 Taking a look at video '{url_key}'...")
         gcs_blob_name, title = download_youtube_video_gcs(url, url_key, client, bucket)
         if not gcs_blob_name:
             if title: 
