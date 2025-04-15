@@ -22,14 +22,14 @@ MAX_VIDEO_DURATION_SECONDS = 600 # 10 min
 # Define GCS paths (these can be prefixes/folders within your bucket)
 GCS_VIDEOS_PREFIX = "videos/"
 GCS_RESULTS_BLOB = "db/results.json"
-# Local temporary directory (optional, could use tempfile directly)
-# VIDEOS_DIR = "./videos" # No longer needed for persistent local storage
-# RESULTS_FILE = "./results.json" # No longer needed for local results
-# RESULTS_FILE_CSV = "./results.csv" # CSV generation might need rethinking or removal if app reads from GCS
 
-# os.makedirs(VIDEOS_DIR, exist_ok=True) # No longer needed
+# Function to convert seconds to mm:ss format (ex: 123 -> 2:03)
+def s2mmss(seconds):
+    minutes = int(seconds) // 60
+    secs = int(seconds) % 60
+    return f"{minutes:02d}:{secs:02d}"
 
-# --- Core Analysis Functions (Keep as is or with minor tweaks) ---
+# --- Scene Change Analysis Functions (can tweak threshold) ---
 def is_scene_change(prev_frame, current_frame, threshold=0.5):
     # ... (keep existing implementation)
     prev_hist = cv2.calcHist([prev_frame], [0, 1], None, [50, 60], [0, 180, 0, 256])
@@ -80,8 +80,8 @@ def download_youtube_video_gcs(url, url_key, gcs_client, gcs_bucket):
         logger.info(f"Video already exists in GCS: {gcs_blob_name}")
         # Try to get title from existing results in GCS
         results_data = gcs_utils.download_json_blob(gcs_bucket, GCS_RESULTS_BLOB)
-        print(f"results_data: {results_data}")
-        print(f"url_key: {url_key}")
+        # print(f"results_data: {results_data}")
+        # print(f"url_key: {url_key}")
         for i, item in enumerate(results_data):
             if item['ytKey'] == url_key:
                 # print(f"title: {results_data[url_key]['title']}")
@@ -193,6 +193,7 @@ def analyze_video_gcs(gcs_blob_name, gcs_client, gcs_bucket):
 
         prev_frame, prev_gray = None, None
         scene_changes = 0
+        scene_change_timestamps = []
         saturation_values = []
         motion_scores = []
         edge_counts = []
@@ -241,6 +242,7 @@ def analyze_video_gcs(gcs_blob_name, gcs_client, gcs_bucket):
                     if prev_frame.shape == frame_resized.shape and prev_frame.size > 0 and frame_resized.size > 0:
                          if is_scene_change(prev_frame, frame_resized):
                             scene_changes += 1
+                            scene_change_timestamps.append(s2mmss(frame_num/fps))
                     else:
                          logger.warning(f"Frame {frame_num} shape mismatch for scene change detection, skipping comparison.")
 
@@ -282,6 +284,8 @@ def analyze_video_gcs(gcs_blob_name, gcs_client, gcs_bucket):
         scenes_per_minute = (scene_changes / (duration / 60)) if duration > 0 else 0
         avg_scene_duration = (duration / scene_changes) if scene_changes > 0 else duration
 
+        print(scene_change_timestamps)
+
         return {
             'duration': duration,
             'scene_count': scene_changes,
@@ -291,6 +295,7 @@ def analyze_video_gcs(gcs_blob_name, gcs_client, gcs_bucket):
             'motion_dynamism': normalized_motion,
             'avg_object_count': round(avg_object_count, 2),
             'max_object_count': int(max_object_count),
+            'scene_change_timestamps': scene_change_timestamps
         }
 
 # --- GCS Results Loading/Saving --- 
@@ -342,7 +347,7 @@ def main():
 
     try:
         # 1. Download/Upload Video
-        print(f"Checking/Downloading video for URL key: {url_key}")
+        print(f">>>>> Checking/Downloading video for URL key: {url_key}")
         gcs_blob_name, title = download_youtube_video_gcs(args.url, url_key, gcs_client, gcs_bucket)
 
         if not gcs_blob_name:
@@ -360,6 +365,7 @@ def main():
         # 3. Load existing results from GCS
         print("Loading existing results from GCS...")
         results = load_results_gcs(gcs_client, gcs_bucket)
+        print(results)
 
         # 4. Update results
         results[url_key] = {
@@ -373,7 +379,7 @@ def main():
             'avg color saturation (0-100)': round(analysis['avg_saturation'], 2),
             'motion dynamism (0-100)': round(analysis['motion_dynamism'], 2),
             'avg object count': round(analysis['avg_object_count'], 2),
-            'max object count': analysis['max_object_count'],
+            'max object count': analysis['max_object_count'], 
         }
 
         # 5. Save updated results to GCS

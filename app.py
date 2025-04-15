@@ -16,7 +16,8 @@ from analyze_video import (
     download_youtube_video_gcs,
     analyze_video_gcs,
     load_results_gcs,
-    save_results_gcs
+    save_results_gcs,
+    s2mmss
 )
 
 # Configure logging (optional but helpful)
@@ -47,11 +48,11 @@ if gcs_client and gcs_bucket:
     results_data = load_results_gcs(gcs_client, gcs_bucket) # Load directly from GCS
     results_data_len = len(results_data)
 
-# Function to convert seconds to mm:ss format (ex: 123 -> 2:03)
-def s2mmss(seconds):
-    minutes = int(seconds) // 60
-    secs = int(seconds) % 60
-    return f"{minutes:02d}:{secs:02d}"
+# # Function to convert seconds to mm:ss format (ex: 123 -> 2:03)
+# def s2mmss(seconds):
+#     minutes = int(seconds) // 60
+#     secs = int(seconds) % 60
+#     return f"{minutes:02d}:{secs:02d}"
 
 # Function to run the analysis workflow directly
 def run_analysis_workflow(url, client, bucket):
@@ -102,6 +103,7 @@ def run_analysis_workflow(url, client, bucket):
             "avgMotionDynamism": round(analysis['motion_dynamism'], 2),
             "avgObjectCount": round(analysis['avg_object_count'], 2),
             "maxObjectCount": analysis['max_object_count'],
+            "sceneChangeTimestamps": analysis['scene_change_timestamps']
         }
         updated_existing = False
         for i, item in enumerate(results):
@@ -152,7 +154,6 @@ st.markdown("""
     font-size: 1rem;
     margin: 4px 0px;
 }
-    
 .st-key-yt .divider-thick {
     border-top: 8px solid black;
     margin: 8px 0;
@@ -219,8 +220,8 @@ yt_ag_css = {
 with st.container(key="yt"): 
     st.html('<h2><span style="background: #f00; color: #fff; padding: 10px; border-radius: 15px; margin-right: 5px">You</span>Trition Facts</h2>')
     st.html("""<div class="divider-thin"></div>""")
-    st.html(f"""<span class="serving">Analyze pacing, saturation, visual complexity, and more. I validated scene duration metrics by manually comparing a handful of videos. For the other metrics, I'll publish more detail on the code. Check out the <a href="#faqs">FAQs</a> for more information on these metrics, with citations!</span>""")
-    st.html("""<div class="divider-thick"></div>""")
+    # st.html(f"""<span class="serving">Analyze pacing, saturation, visual complexity, and more. I validated scene duration metrics by manually comparing a handful of videos. For the other metrics, I'll publish more detail on the code. Check out the <a href="#faqs">FAQs</a> for more information on these metrics, with citations!</span>""")
+    # st.html("""<div class="divider-thick"></div>""")
     youtube_url = st.text_input("🎥 Paste a YouTube URL")
     if st.button("Run Analysis"):
         if not gcs_client or not gcs_bucket:
@@ -245,7 +246,13 @@ with st.container(key="yt"):
     if gcs_client and gcs_bucket:
         st.markdown(f'<div class="calories"><span style="float: left">Videos Analyzed</span><span style="float: right">{results_data_len} total</span></div>', unsafe_allow_html=True)
         # st.subheader("📊 All Videos Analyzed")
-        st.html('<span class="serving">Color saturation and motion are normalized to 0 (low) - 100 (high)</span>')
+        st.html('<span class="serving">See <a href="#table-1-metrics-so-many-metrics">Metrics Table</a> for more info and juicy academic papers on how these metrics affect children\'s development.</span>')
+        st.markdown("""
+                    * ⬆👍🏻 Avg Scene Length: lower scene duration can overstimulate 
+                    * ⬇👍🏻 Motion Dynamism: high motion dynamism can cause visual fatigue. Metrics here are normalized to 0 (paint drying) to 100 (zoomies!).
+                    * ⬇👍🏻 Objects on Screen: busy environments can result in distractions and diminshed learning gains
+                    * ⬇👍🏻 Color Saturation: high color use can cause visual fatigue. Metrics below are normalized to 0 (sad beige videos) to 100 (eighties are back!).
+        """, unsafe_allow_html=True)
         # results_data = load_results_gcs(gcs_client, gcs_bucket) # Load directly from GCS
 
         if results_data:
@@ -358,12 +365,18 @@ st.markdown(
 ##### Table 1. Metrics! So many metrics!
 | **Domain**   | **Implemented** | **Metric**                               | **How to Measure**                                               | **Developmental Relevance**                                           |
 |--------------|-----------------|------------------------------------------|------------------------------------------------------------------|------------------------------------------------------------------------|
-| Attention    | x               | Average Scene Length                     | Calculate average scene length. Here, I use seconds.              | Rapid scene changes can disrupt sustained attention and overstimulate children, while slower pacing helps maintain focus.[^2][^8] |
-| Attention    | x               | Motion Dynamism                          | Analyze motion rapidity within a scene.      | Fast paced videos (defined in terms of scene change  mostly, but researchers also discussion motion within a scene) led to children performing worse on executive function tasks[^8] |
+| Attention    | x               | Average Scene Length                     | Calculate average scene length. Here, I use seconds.              | Rapid scene changes can disrupt sustained attention and overstimulate children, while slower pacing helps maintain focus.[^2] [^8] |
+| Attention    | x               | Motion Dynamism                          | Analyze motion rapidity within a scene.      | Fast paced videos (defined in terms of scene change  mostly, but researchers also discussion motion within a scene) led to children performing worse on executive function tasks[^8]. Fast paced videos can also cause visual fatigue[^9]|
 | Attention    | x               | Number of Objects on Screen                        | Look at number of distinct objects on the screen, generate average across all frames | Busier classroom environments resulted in children spending more time off task and demonstrated smaller learning gains, suggesting screen clutter may similarly distract young viewers.[^6] |
-| Attention    | x               | Color Saturation                         | Look at intensity of colors                                     | High color saturation may disrupt structured play and attention, as found in a study comparing colorful and non-colorful play areas for preschoolers.[^7] |
+| Attention    | x               | Color Saturation                         | Look at intensity of colors                                     | High color saturation may disrupt structured play and attention, as found in a study comparing colorful and non-colorful play areas for preschoolers.[^7] Excessive use of color also can cause visual fatique[^9] |
 | Attention    |                 | Content Coherence                        | Assess narrative logic; count disconnected segments.             | Coherent and logically sequenced stories support sustained attention and narrative understanding, aligning with best practices for educational video design.[^1] |
 | Attention    | x               | Video Length (Age-Appropriate Duration)  | Compare video length to age-appropriate guidelines.              | Videos should match young children's limited attention spans to support learning without fatigue or distraction.[^4] |
+
+<details>
+<summary>...see more domains for the future</summary>
+
+| **Domain**   | **Implemented** | **Metric**                               | **How to Measure**                                               | **Developmental Relevance**                                           |
+|--------------|-----------------|------------------------------------------|------------------------------------------------------------------|------------------------------------------------------------------------|
 | Cognitive    |                 | Educational Content & Objectives         | Check for explicit learning goals or curriculum-based content.   | Content with clear educational goals supports school readiness and cognitive development, as emphasized by NIH findings on early learning stimulation.[^5] |
 | Cognitive    |                 | Interactive Prompting                    | Count prompts/questions directed at the viewer.                  | Prompting viewers to think and respond fosters active cognitive engagement and problem-solving, supporting recommendations for effective learning video design.[^1] |
 | Cognitive    |                 | Repetition for Reinforcement             | Tally repeated key words/concepts.                               | Repetition enhances memory retention and concept mastery, aligning with principles for maximizing learning through video content.[^1] |
@@ -377,6 +390,7 @@ st.markdown(
 | Emotional    |                 | Conflict & Violence Content              | Count conflicts/violence; review resolution quality.             | Frequent or poorly resolved conflict in media can model aggression, while peaceful resolution promotes healthy social-emotional development.[^3] |
 | Emotional    |                 | Emotional Engagement & Empathy           | Count emotion words, emotional scenes, empathetic moments.       | Content that models and names emotions builds emotional awareness and empathy, foundational skills in early childhood development.[^3] |
 
+</details>
 
 [^1]: Brame C. J. (2016). Effective Educational Videos: Principles and Guidelines for Maximizing Student Learning from Video Content. CBE life sciences education, 15(4), es6. https://doi.org/10.1187/cbe.16-03-0125
 [^2]: Hutton, J.S., Piotrowski, J.T., Bagot, K. et al. Digital Media and Developing Brains: Concerns and Opportunities. Curr Addict Rep 11, 287–298 (2024). https://doi.org/10.1007/s40429-024-00545-3
@@ -386,7 +400,8 @@ st.markdown(
 [^6]: Fisher, A. V., Godwin, K. E., & Seltman, H. (2014). Visual Environment, Attention Allocation, and Learning in Young Children: When Too Much of a Good Thing May Be Bad. Psychological Science, 25(7), 1362-1370. https://doi.org/10.1177/0956797614533801
 [^7]: Stern-Ellran, K., Zilcha-Mano, S., Sebba, R., & Levit Binnun, N. (2016). Disruptive Effects of Colorful vs. Non-colorful Play Area on Structured Play—A Pilot Study with Preschoolers. *Frontiers in Psychology*, 7, 1661. https://doi.org/10.3389/fpsyg.2016.01661
 [^8]: Lillard, A. S., & Peterson, J. (2011). The immediate impact of different types of television on young children's executive function. Pediatrics, 128(4), 644–649. https://doi.org/10.1542/peds.2010-1919
-""")
+[^9]: Argilés, M., Fonts, E., Pérez-Mañá, L., Martinez-Navarro, B., Sora-Domenjó, C., Pérez-Cabré, E., Sunyer-Grau, B., Rovira-Gay, C., Molins-Pitarch, C., & Quevedo-Junyent, L. (2024). Effects of colour and scene dynamism on visual fatigue in animated films. Scientific reports, 14(1), 26683. https://doi.org/10.1038/s41598-024-78329-y
+""", unsafe_allow_html=True)
 
 # with st.expander("📄 Raw JSON"):
 #     st.json(results_data) # Show the raw data loaded from GCS
