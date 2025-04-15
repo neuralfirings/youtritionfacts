@@ -293,7 +293,7 @@ def analyze_video_gcs(gcs_blob_name, gcs_client, gcs_bucket):
             'max_object_count': int(max_object_count),
         }
 
-# --- GCS Results Loading/Saving ---
+# --- GCS Results Loading/Saving --- 
 
 def load_results_gcs(gcs_client, gcs_bucket):
     """Loads results dictionary from results.json in GCS."""
