@@ -219,7 +219,7 @@ yt_ag_css = {
 with st.container(key="yt"): 
     st.html('<h2><span style="background: #f00; color: #fff; padding: 10px; border-radius: 15px; margin-right: 5px">You</span>Trition Facts</h2>')
     st.html("""<div class="divider-thin"></div>""")
-    st.html(f"""<span class="serving">7 metrics per video<br /><br />Analyze pacing, saturation, visual complexity, and more. I validated scene duration metrics by manually comparing a handful of videos. For the other metrics, I'll publish more detail on the code. Scroll down to see why I picked the metrics I picked.</span>""")
+    st.html(f"""<span class="serving">Analyze pacing, saturation, visual complexity, and more. I validated scene duration metrics by manually comparing a handful of videos. For the other metrics, I'll publish more detail on the code. Check out the <a href="#faqs">FAQs</a> for more information on these metrics, with citations!</span>""")
     st.html("""<div class="divider-thick"></div>""")
     youtube_url = st.text_input("🎥 Paste a YouTube URL")
     if st.button("Run Analysis"):
@@ -286,11 +286,11 @@ with st.container(key="yt"):
                 getGui() {
                     return this.eGui;
                 }
-            }""")
+            }"""    )
             # title_link_renderer=JsCode('''function(params) {console.log(params);if(params.data.link != undefined) { return `<a href="${params.data.link}" target="_blank">${params.value}</a>`} else { return params.value }}''')
             gb.configure_column("title", headerName="Title",
                 cellRenderer=title_link_renderer,
-                maxWidth=300, #suppressSizeToFit=True
+                width=50, #suppressSizeToFit=True
                 resizable=True,
                 pinned="left"
             )
@@ -326,30 +326,62 @@ with st.container(key="yt"):
                 reload_data=True, # Important to reflect changes after analysis run + rerun
                 key='analysis_grid', # Add a key for stability,
             )
-
-    #         # citations
-    #         st.markdown("---")
-    #         st.subheader("Citations")
-    #         st.text("Some research related to the metrics used here")
-    #         st.markdown("""* Re: __Average Scene Duration__ - [The Immediate Impact of Different Types of Television on Young Children's Executive Function](https://pmc.ncbi.nlm.nih.gov/articles/PMC9923845/#:~:text=Children%20who%20watched%20the%20fast,attention%2C%20age%2C%20and%20television%20exposure) (paper focuses on fast paced videos, with a priamry metric as scene duration)
-    # * Re: __Motion Dynamism__ Adding this metric since this is tangentially related to pacing
-    # * Re: __Color Saturation__ - [Disruptive Effects of Colorful vs. Non-colorful Play Area on Structured Play—A Pilot Study with Preschoolers](https://pmc.ncbi.nlm.nih.gov/articles/PMC5083879)
-    # * Re: __Number of Objects on Screen__ - [Effect of Repeated Exposure to the Visual Environment on Young Children's Attention](https://onlinelibrary.wiley.com/doi/10.1111/cogs.13093)
-    # """)
-    #         with st.expander("📄 Raw JSON"):
-    #             st.json(results_data) # Show the raw data loaded from GCS
         else:
             st.info("No analysis history found. Run a new analysis to get started.")
     else:
         st.warning("Data Store is not configured. Cannot load or save analysis history.")
 
-# Citations/Footnotes/JSON UI
-st.subheader("Footnotes")
-st.text("Some research related to the metrics used here")
-st.markdown("""* Re: __Average Scene Duration__ - [The Immediate Impact of Different Types of Television on Young Children's Executive Function](https://pmc.ncbi.nlm.nih.gov/articles/PMC9923845/#:~:text=Children%20who%20watched%20the%20fast,attention%2C%20age%2C%20and%20television%20exposure) (paper focuses on fast paced videos, with a priamry metric as scene duration)
-* Re: __Motion Dynamism__ Adding this metric since this is tangentially related to pacing
-* Re: __Color Saturation__ - [Disruptive Effects of Colorful vs. Non-colorful Play Area on Structured Play—A Pilot Study with Preschoolers](https://pmc.ncbi.nlm.nih.gov/articles/PMC5083879)
-* Re: __Number of Objects on Screen__ - [Effect of Repeated Exposure to the Visual Environment on Young Children's Attention](https://onlinelibrary.wiley.com/doi/10.1111/cogs.13093)
+# FAQs
+st.subheader("FAQs")
+st.markdown(
+"""
+1. **Why these metrics?**<br />
+I want to find ways to analyze videos in an objective, quantifiable way. I researched (well, asked ChatGPT in deep research mode) to come up with a list of metrics for determining the quality of a YouTube video from an early childhood development standpoint, which I then supplemented with my own Google searches. You can find the full list of metrics below in Table 1. There are so many metrics that I can implement, I picked a few that was easy to do and comes up a lot in discussions with other parents and teachers. 
+3. **Does this tell me which videos are bad?**<br />
+Not exactly. Similar to Nutrition Facts on the back of packaged foods, this tool is meant to shed some light on what goes into a video, and you can use that data to inform whether something works or doesn't work for your specific use case. In foods, there's nothing inherently "good" or "bad" about 12g of carbs, it's just a data (em.. datum) that describes the thing. I link papers I've found related to each metric. You can read them yourself and come to your own conclusions. 
+2. **Why did you make this?**<br />
+I often hear people talking about the "good ol' days" when kids videos were less flashy and "better," and I wanted to see if this was true. People will also say this content creator is great, or that content creator is bad, and I'm curious what the actual data shows. I also wanted to try a project with Python CV (computer vision), and wanted to see if AI can write the code for me. 
+4. **And...?**<br />
+AI was able to generate.. maybe 80% of the code, and then I had to do maybe 80% of the debugging on said code. That said, with this project, because it's more self contained AI was pretty good at the narrow goals (e.g., coming up with a method to detect scene changes). What I've noticed AI struggles with is understanding the limitations, and more importantly how to work around the limitations, of specific development frameworks. Sometimes, it would just make up library functions or parameters that does not exist. For example, I used Streamlit to generate the front end and host the page, and it kept giving me wrong code for how to show links in a table. I ended up figure out how to do this the old fashioned way, which is to find a forum post where a developer had the same issue and copy/paste. 
+5. **What's next?**<br />
+Next up, I'd like to create a way to show a "composite" score which combines all these metrics. I also want to create an interface for showing metrics related to one video at a time. I should probably also work on a more mobile friendly UI. And of course implement more metrics, which I will probably just ask my handy dandy coding assistant to crawl through the table below and come up with methods to analyze these metrics.
+
+""", unsafe_allow_html=True)
+
+st.markdown(
+"""
+##### Table 1. Metrics! So many metrics!
+| **Domain**   | **Implemented** | **Metric**                               | **How to Measure**                                               | **Developmental Relevance**                                           |
+|--------------|-----------------|------------------------------------------|------------------------------------------------------------------|------------------------------------------------------------------------|
+| Attention    | x               | Average Scene Length                     | Calculate average scene length. Here, I use seconds.              | Rapid scene changes can disrupt sustained attention and overstimulate children, while slower pacing helps maintain focus.[^2][^8] |
+| Attention    | x               | Motion Dynamism                          | Analyze motion rapidity within a scene.      | Fast paced videos (defined in terms of scene change  mostly, but researchers also discussion motion within a scene) led to children performing worse on executive function tasks[^8] |
+| Attention    | x               | Number of Objects on Screen                        | Look at number of distinct objects on the screen, generate average across all frames | Busier classroom environments resulted in children spending more time off task and demonstrated smaller learning gains, suggesting screen clutter may similarly distract young viewers.[^6] |
+| Attention    | x               | Color Saturation                         | Look at intensity of colors                                     | High color saturation may disrupt structured play and attention, as found in a study comparing colorful and non-colorful play areas for preschoolers.[^7] |
+| Attention    |                 | Content Coherence                        | Assess narrative logic; count disconnected segments.             | Coherent and logically sequenced stories support sustained attention and narrative understanding, aligning with best practices for educational video design.[^1] |
+| Attention    | x               | Video Length (Age-Appropriate Duration)  | Compare video length to age-appropriate guidelines.              | Videos should match young children's limited attention spans to support learning without fatigue or distraction.[^4] |
+| Cognitive    |                 | Educational Content & Objectives         | Check for explicit learning goals or curriculum-based content.   | Content with clear educational goals supports school readiness and cognitive development, as emphasized by NIH findings on early learning stimulation.[^5] |
+| Cognitive    |                 | Interactive Prompting                    | Count prompts/questions directed at the viewer.                  | Prompting viewers to think and respond fosters active cognitive engagement and problem-solving, supporting recommendations for effective learning video design.[^1] |
+| Cognitive    |                 | Repetition for Reinforcement             | Tally repeated key words/concepts.                               | Repetition enhances memory retention and concept mastery, aligning with principles for maximizing learning through video content.[^1] |
+| Cognitive    |                 | Realism vs. Fantastical Content          | Rate realism vs. fantasy; note presence of surreal elements.     | Realistic content is easier to comprehend and process, while fantastical elements may overstimulate young viewers and hinder understanding, as discussed in digital media impact studies.[^2] |
+| Language     |                 | Vocabulary Diversity                     | Analyze transcript for unique words/new word use.                | Exposure to diverse vocabulary promotes robust language development in early years, consistent with research on media and child development.[^3] |
+| Language     |                 | Speech Pace & Clarity                    | Calculate words/minute; rate clarity.                            | Slower, clearer speech improves comprehension and language acquisition in young viewers, as shown in video learning research.[^1] |
+| Language     |                 | Interactive Dialogue                     | Count call-and-response moments and pauses.                      | Opportunities for verbal interaction, even if simulated, can strengthen expressive language skills in early learners.[^3] |
+| Language     |                 | Visual Language Supports                 | Note use of captions, labels, or relevant images.                | Pairing spoken words with visual cues like text or imagery enhances word recognition and comprehension, in line with multimedia learning principles.[^1] |
+| Emotional    |                 | Pro-Social/Emotional Lessons             | Count instances of sharing, emotional naming, empathy.           | Exposure to prosocial behaviors through media helps children learn empathy, cooperation, and emotional regulation strategies.[^3] |
+| Emotional    |                 | Calm Tone & Emotional Safety             | Assess tone, volume, sudden sounds; rate on calmness scale.      | Calm and predictable media environments help support emotional regulation and prevent overstimulation, a concern raised in studies on media’s impact on young brains.[^2] |
+| Emotional    |                 | Conflict & Violence Content              | Count conflicts/violence; review resolution quality.             | Frequent or poorly resolved conflict in media can model aggression, while peaceful resolution promotes healthy social-emotional development.[^3] |
+| Emotional    |                 | Emotional Engagement & Empathy           | Count emotion words, emotional scenes, empathetic moments.       | Content that models and names emotions builds emotional awareness and empathy, foundational skills in early childhood development.[^3] |
+
+
+[^1]: Brame C. J. (2016). Effective Educational Videos: Principles and Guidelines for Maximizing Student Learning from Video Content. CBE life sciences education, 15(4), es6. https://doi.org/10.1187/cbe.16-03-0125
+[^2]: Hutton, J.S., Piotrowski, J.T., Bagot, K. et al. Digital Media and Developing Brains: Concerns and Opportunities. Curr Addict Rep 11, 287–298 (2024). https://doi.org/10.1007/s40429-024-00545-3
+[^3]: Hadders-Algra M. (2020). Interactive media use and early childhood development. Jornal de pediatria, 96(3), 273-275. https://doi.org/10.1016/j.jped.2019.05.001
+[^4]: Canadian Paediatric Society, Digital Health Task Force, Ottawa, Ontario (2017). Screen time and young children: Promoting health and development in a digital world. Paediatrics & child health, 22(8), 461–477. https://doi.org/10.1093/pch/pxx123                        
+[^5]: Eunice Kennedy Shriver National Institute of Child Health and Human Development. (2018). Media exposure and early child development workshop (NIH Publication No. 18-XX). U.S. Department of Health and Human Services. https://www.nichd.nih.gov/sites/default/files/2018-06/Media_Exp_Early_Child_Dev_Work.pdf
+[^6]: Fisher, A. V., Godwin, K. E., & Seltman, H. (2014). Visual Environment, Attention Allocation, and Learning in Young Children: When Too Much of a Good Thing May Be Bad. Psychological Science, 25(7), 1362-1370. https://doi.org/10.1177/0956797614533801
+[^7]: Stern-Ellran, K., Zilcha-Mano, S., Sebba, R., & Levit Binnun, N. (2016). Disruptive Effects of Colorful vs. Non-colorful Play Area on Structured Play—A Pilot Study with Preschoolers. *Frontiers in Psychology*, 7, 1661. https://doi.org/10.3389/fpsyg.2016.01661
+[^8]: Lillard, A. S., & Peterson, J. (2011). The immediate impact of different types of television on young children's executive function. Pediatrics, 128(4), 644–649. https://doi.org/10.1542/peds.2010-1919
 """)
-with st.expander("📄 Raw JSON"):
-    st.json(results_data) # Show the raw data loaded from GCS
+
+# with st.expander("📄 Raw JSON"):
+#     st.json(results_data) # Show the raw data loaded from GCS
