@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 # --- Streamlit App Logic ---
-st.set_page_config(layout="wide", page_icon="🤔", page_title="YouTrition Facts") # must be first st command
+st.set_page_config(layout="wide", page_icon=":material/smart_display:", page_title="YouTrition Facts") # must be first st command
 
 
 # --- GCS Initialization ---
@@ -223,7 +223,7 @@ yt_ag_css = {
 # endregion
 
 with st.container(key="yt"): 
-    st.header("YouTrition Facts")
+    st.html('<h2><span style="background: #f00; color: #fff; padding: 10px; border-radius: 15px; margin-right: 5px">You</span>Trition Facts</h2>')
     st.html("""<div class="divider-thin"></div>""")
     st.html(f"""<span class="serving">7 metrics per video<br /><br />Analyze pacing, saturation, visual complexity, and more. I validated scene duration metrics by manually comparing a handful of videos. For the other metrics, I'll publish more detail on the code. Scroll down to see why I picked the metrics I picked.</span>""")
     st.html("""<div class="divider-thick"></div>""")
