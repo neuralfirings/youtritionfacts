@@ -345,7 +345,6 @@ I often hear people talking about the "good ol' days" when kids videos were less
 AI was able to generate.. maybe 80% of the code, and then I had to do maybe 80% of the debugging on said code. That said, with this project, because it's more self contained AI was pretty good at the narrow goals (e.g., coming up with a method to detect scene changes). What I've noticed AI struggles with is understanding the limitations, and more importantly how to work around the limitations, of specific development frameworks. Sometimes, it would just make up library functions or parameters that does not exist. For example, I used Streamlit to generate the front end and host the page, and it kept giving me wrong code for how to show links in a table. I ended up figure out how to do this the old fashioned way, which is to find a forum post where a developer had the same issue and copy/paste. 
 5. **What's next?**<br />
 Next up, I'd like to create a way to show a "composite" score which combines all these metrics. I also want to create an interface for showing metrics related to one video at a time. I should probably also work on a more mobile friendly UI. And of course implement more metrics, which I will probably just ask my handy dandy coding assistant to crawl through the table below and come up with methods to analyze these metrics.
-
 """, unsafe_allow_html=True)
 
 st.markdown(
