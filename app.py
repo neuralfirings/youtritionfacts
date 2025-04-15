@@ -26,12 +26,10 @@ logger = logging.getLogger(__name__)
 # --- Constants ---
 # RESULTS_FILE = "./results.json" # No longer needed
 
+
 # --- Streamlit App Logic ---
 st.set_page_config(layout="wide", page_icon="🤔", page_title="YouTrition Facts") # must be first st command
-st.title("📺 YouTrition Facts")
-st.markdown("Paste a YouTube video link to analyze pacing, saturation, visual complexity, and more. I validated scene duration metrics by manually comparing a handful of videos. For the other metrics, I'll publish more detail on the code. Scroll down to see why I picked the metrics I picked.")
 
-youtube_url = st.text_input("🎥 YouTube URL")
 
 # --- GCS Initialization ---
 # Initialize client and bucket once using caching
@@ -49,6 +47,14 @@ def init_gcs():
 
 gcs_client, gcs_bucket = init_gcs()
 
+# Load and display results from GCS
+results_data_len=0
+if gcs_client and gcs_bucket:
+    results_data = load_results_gcs(gcs_client, gcs_bucket) # Load directly from GCS
+    results_data_len = len(results_data)
+# print(f">>>: {len(results_data)}")
+
+# Function to convert seconds to mm:ss format (ex: 123 -> 2:03)
 def s2mmss(seconds):
     minutes = int(seconds) // 60
     secs = int(seconds) % 60
@@ -132,55 +138,145 @@ def run_analysis_workflow(url, client, bucket):
         status_placeholder.empty() # Clear status message
         return False, None
 
+# region CSS
+st.markdown("""
+<style>
+.st-key-yt {
+    border: 8px solid black;
+    padding: 10px 14px;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background-color: white;
+    color: black;
+    margin-bottom: 20px;
+}
+.st-key-yt h2 {
+    font-size: 3rem;
+    font-weight: 900;
+    margin: 0;
+    padding-bottom: 4px;
+}
+.st-key-yt .serving {
+    font-size: 1rem;
+    margin: 4px 0px;
+}
+    
+.st-key-yt .divider-thick {
+    border-top: 8px solid black;
+    margin: 8px 0;
+}
+.st-key-yt .divider-thin {
+    border-top: 1px solid black;
+    margin: 4px 0;
+}
+            
+.st-key-yt .calories {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 4px 0;
+}
+.st-key-yt .ag-header-cell-label {
+    font-size: 3rem;
+    font-weight: 900;
+    margin: 0;
+    padding-bottom: 4px;
+    border-bottom: 1px solid black;
+}
+div[data-baseweb="input"] {
+    border: 1px solid black !important;
+    border-radius: 0px !important;
+}
+.stMainBlockContainer { margin-top: -50px }
+</style>""", unsafe_allow_html=True)
 
-if st.button("Run Analysis"):
-    if not gcs_client or not gcs_bucket:
-        st.error("Cannot run analysis because GCS is not configured correctly.")
-    elif youtube_url.strip() == "":
-        st.warning("Please enter a YouTube URL.")
-    else:
-        # Run the workflow directly, no subprocess
-        success, analysis_output = run_analysis_workflow(youtube_url, gcs_client, gcs_bucket)
+yt_ag_css = {
+    ".ag-header-cell-label": {
+        "font-size": "0.8rem",
+        "font-weight": "900",
+        "color": "#000",
+        "margin": "0",
+        "padding-bottom": "4px",
+        # "border-bottom": "1px solid black",
+        "font-family": "'Helvetica Neue', Helvetica, Arial, sans-serif"
+    },
+    ".ag-header-cell": {
+        "background": "#fff",
+        "border-bottom": "solid 3px #000",
+        "border-right": "solid 1px #000 !important",
+    },
+    ".ag-row": {
+        "border":"none",
+        "margin": "0"
+    },
+    ".ag-root": {
+        # "border":"solid 2px #000 ",
+        "margin": "0"
+    },
+    ".ag-cell": {
+        "border-right": "solid 1px #000 !important",
+        # "z-index": "1000",
+        # "margin-right": "10px !important",
+        "border-bottom": "solid 1px #EEE !important",
+        "display": "inline-block",
+        "width": "calc(100% - 10px)",
+    },
+}
+# endregion
 
-        if success:
-            st.success("Analysis complete! Refresh page to see this result updated in table below.")
-            if analysis_output:
-                 st.json({"analysisReport": analysis_output}) # Display the results of the run
-            # Force rerun to reload the results grid from GCS
-            # st.rerun()
-        # Error messages are handled within     run_analysis_workflow
+with st.container(key="yt"): 
+    st.header("YouTrition Facts")
+    st.html("""<div class="divider-thin"></div>""")
+    st.html(f"""<span class="serving">7 metrics per video<br /><br />Analyze pacing, saturation, visual complexity, and more. I validated scene duration metrics by manually comparing a handful of videos. For the other metrics, I'll publish more detail on the code. Scroll down to see why I picked the metrics I picked.</span>""")
+    st.html("""<div class="divider-thick"></div>""")
+    youtube_url = st.text_input("🎥 Paste a YouTube URL")
+    if st.button("Run Analysis"):
+        if not gcs_client or not gcs_bucket:
+            st.error("Cannot run analysis because GCS is not configured correctly.")
+        elif youtube_url.strip() == "":
+            st.warning("Please enter a YouTube URL.")
+        else:
+            # Run the workflow directly, no subprocess
+            success, analysis_output = run_analysis_workflow(youtube_url, gcs_client, gcs_bucket)
 
+            if success:
+                st.success("Analysis complete! Refresh page to see this result updated in table below.")
+                if analysis_output:
+                    st.json({"analysisReport": analysis_output}) # Display the results of the run
+                # Force rerun to reload the results grid from GCS
+                # st.rerun()
+            # Error messages are handled within     run_analysis_workflow
+    
+    st.html('<div class="divider-thick"></div>')
 
-# Load and display results from GCS
-if gcs_client and gcs_bucket:
-    st.markdown("---")
-    st.subheader("📊 All Videos Analyzed")
-    st.text("Color saturation and motion are normalized to 0 (low) - 100 (high)")
-    results_data = load_results_gcs(gcs_client, gcs_bucket) # Load directly from GCS
+    # Load and display results from GCS
+    if gcs_client and gcs_bucket:
+        st.markdown(f'<div class="calories"><span style="float: left">Videos Analyzed</span><span style="float: right">{results_data_len} total</span></div>', unsafe_allow_html=True)
+        # st.subheader("📊 All Videos Analyzed")
+        st.html('<span class="serving">Color saturation and motion are normalized to 0 (low) - 100 (high)</span>')
+        results_data = load_results_gcs(gcs_client, gcs_bucket) # Load directly from GCS
 
-    if results_data:
-        df = pd.DataFrame(results_data)
+        if results_data:
+            df = pd.DataFrame(results_data)
 
-        column_order = [
-            'title',
-            'duration',
-            'avgSceneDur',
-            'numScenes',
-            # 'spm'
-            'avgColorSaturation',
-            'avgMotionDynamism',
-            'avgObjectCount',
-            'maxObjectCount', 'link'
-        ]
+            column_order = [
+                'title',
+                'duration',
+                'avgSceneDur',
+                'numScenes',
+                # 'spm'
+                'avgColorSaturation',
+                'avgMotionDynamism',
+                'avgObjectCount',
+                'maxObjectCount', 'link'
+            ]
 
-        df = df[column_order]
+            df = df[column_order]
 
-        df.duration = df.duration.apply(s2mmss)
-        
+            df.duration = df.duration.apply(s2mmss)
+            
 
-        gb = GridOptionsBuilder.from_dataframe(df)
-        gb.configure_column("ytKey", hide=True)
-        title_link_renderer=JsCode("""class UrlCellRenderer {
+            gb = GridOptionsBuilder.from_dataframe(df)
+            gb.configure_column("ytKey", hide=True)
+            title_link_renderer=JsCode("""class UrlCellRenderer {
 init(params) {
 this.eGui = document.createElement('a');
 this.eGui.innerText = params.value;
@@ -197,58 +293,70 @@ getGui() {
 return this.eGui;
 }
 }"""
-        )
-        # title_link_renderer=JsCode('''function(params) {console.log(params);if(params.data.link != undefined) { return `<a href="${params.data.link}" target="_blank">${params.value}</a>`} else { return params.value }}''')
-        gb.configure_column("title", headerName="Title",
-            cellRenderer=title_link_renderer,
-            maxWidth=300, #suppressSizeToFit=True
-            resizable=True
-        )
-            # cellRendererParams={"innerRenderer": "html"}
-        # )
-        gb.configure_column("duration", headerName="Video Length") #, cellRenderer=title_link_renderer)
-        gb.configure_column("avgSceneDur", headerName="Avg Scene (sec)", sort='asc', sortIndex=0)
-        gb.configure_column("numScenes", headerName="Scene Count")
-        gb.configure_column("spm", hide=True, headerName="Scenes/Min")
-        gb.configure_column("avgColorSaturation", headerName="Color Saturation")
-        gb.configure_column("avgMotionDynamism", headerName="Motion")
-        gb.configure_column("avgObjectCount", headerName="Objects on Screen (Avg)")
-        gb.configure_column("maxObjectCount", headerName="Objects on Screen (Max)")
-        gb.configure_column("link", hide=True, headerName="URL")
-        gb.configure_grid_options(domLayout='normal')
-        gb.configure_pagination(paginationAutoPageSize=False, paginationPageSize=15)
-        gb.configure_default_column(resizable=True, filterable=True, sortable=True, editable=False)
+            )
+            # title_link_renderer=JsCode('''function(params) {console.log(params);if(params.data.link != undefined) { return `<a href="${params.data.link}" target="_blank">${params.value}</a>`} else { return params.value }}''')
+            gb.configure_column("title", headerName="Title",
+                cellRenderer=title_link_renderer,
+                maxWidth=300, #suppressSizeToFit=True
+                resizable=True
+            )
+                # cellRendererParams={"innerRenderer": "html"}
+            # )
+            gb.configure_column("duration", headerName="Video Length") #, cellRenderer=title_link_renderer)
+            gb.configure_column("avgSceneDur", headerName="Avg Scene (sec)", sort='asc', sortIndex=0)
+            gb.configure_column("numScenes", headerName="Scene Count")
+            gb.configure_column("spm", hide=True, headerName="Scenes/Min")
+            gb.configure_column("avgColorSaturation", headerName="Color Saturation")
+            gb.configure_column("avgMotionDynamism", headerName="Motion")
+            gb.configure_column("avgObjectCount", headerName="Objects on Screen (Avg)")
+            gb.configure_column("maxObjectCount", headerName="Objects on Screen (Max)")
+            gb.configure_column("link", hide=True, headerName="URL")
+            gb.configure_grid_options(domLayout='normal')
+            gb.configure_pagination(paginationAutoPageSize=False, paginationPageSize=15)
+            gb.configure_default_column(resizable=True, filterable=True, sortable=True, editable=False)
 
-        gridOptions = gb.build()
+            gridOptions = gb.build()
 
-        search_query = st.text_input("🔍 Search Videos", "")
-        gridOptions['quickFilterText'] = search_query
-        AgGrid(
-            df, # Pass the original df with 'link' column
-            gridOptions=gridOptions,
-            update_mode=GridUpdateMode.MODEL_CHANGED, # Standard update mode
-            allow_unsafe_jscode=True,
-            enable_enterprise_modules=False,
-            # fit_columns_on_grid_load=False,
-            height=500,
-            width='100%',
-            reload_data=True, # Important to reflect changes after analysis run + rerun
-            key='analysis_grid', # Add a key for stability,
-        )
+            search_query = st.text_input("🔍 Search Videos", "")
+            gridOptions['quickFilterText'] = search_query
+            AgGrid(
+                df, # Pass the original df with 'link' column
+                custom_css=yt_ag_css,
+                gridOptions=gridOptions,
+                update_mode=GridUpdateMode.MODEL_CHANGED, # Standard update mode
+                allow_unsafe_jscode=True,
+                enable_enterprise_modules=False,
+                # fit_columns_on_grid_load=False,
+                height=500,
+                width='100%',
+                reload_data=True, # Important to reflect changes after analysis run + rerun
+                key='analysis_grid', # Add a key for stability,
+            )
 
-        # citations
-        st.markdown("---")
-        st.subheader("Citations")
-        st.text("Some research related to the metrics used here")
-        st.markdown("""* Re: __Average Scene Duration__ - [The Immediate Impact of Different Types of Television on Young Children's Executive Function](https://pmc.ncbi.nlm.nih.gov/articles/PMC9923845/#:~:text=Children%20who%20watched%20the%20fast,attention%2C%20age%2C%20and%20television%20exposure) (paper focuses on fast paced videos, with a priamry metric as scene duration)
+    #         # citations
+    #         st.markdown("---")
+    #         st.subheader("Citations")
+    #         st.text("Some research related to the metrics used here")
+    #         st.markdown("""* Re: __Average Scene Duration__ - [The Immediate Impact of Different Types of Television on Young Children's Executive Function](https://pmc.ncbi.nlm.nih.gov/articles/PMC9923845/#:~:text=Children%20who%20watched%20the%20fast,attention%2C%20age%2C%20and%20television%20exposure) (paper focuses on fast paced videos, with a priamry metric as scene duration)
+    # * Re: __Motion Dynamism__ Adding this metric since this is tangentially related to pacing
+    # * Re: __Color Saturation__ - [Disruptive Effects of Colorful vs. Non-colorful Play Area on Structured Play—A Pilot Study with Preschoolers](https://pmc.ncbi.nlm.nih.gov/articles/PMC5083879)
+    # * Re: __Number of Objects on Screen__ - [Effect of Repeated Exposure to the Visual Environment on Young Children's Attention](https://onlinelibrary.wiley.com/doi/10.1111/cogs.13093)
+    # """)
+    #         with st.expander("📄 Raw JSON"):
+    #             st.json(results_data) # Show the raw data loaded from GCS
+        else:
+            st.info("No analysis history found. Run a new analysis to get started.")
+    else:
+        st.warning("Data Store is not configured. Cannot load or save analysis history.")
+
+
+# citations
+st.subheader("Footnote")
+st.text("Some research related to the metrics used here")
+st.markdown("""* Re: __Average Scene Duration__ - [The Immediate Impact of Different Types of Television on Young Children's Executive Function](https://pmc.ncbi.nlm.nih.gov/articles/PMC9923845/#:~:text=Children%20who%20watched%20the%20fast,attention%2C%20age%2C%20and%20television%20exposure) (paper focuses on fast paced videos, with a priamry metric as scene duration)
 * Re: __Motion Dynamism__ Adding this metric since this is tangentially related to pacing
 * Re: __Color Saturation__ - [Disruptive Effects of Colorful vs. Non-colorful Play Area on Structured Play—A Pilot Study with Preschoolers](https://pmc.ncbi.nlm.nih.gov/articles/PMC5083879)
 * Re: __Number of Objects on Screen__ - [Effect of Repeated Exposure to the Visual Environment on Young Children's Attention](https://onlinelibrary.wiley.com/doi/10.1111/cogs.13093)
 """)
-        with st.expander("📄 Raw JSON"):
-            st.json(results_data) # Show the raw data loaded from GCS
-    else:
-        st.info("No analysis history found. Run a new analysis to get started.")
-else:
-    st.warning("Data Store is not configured. Cannot load or save analysis history.")
-
+with st.expander("📄 Raw JSON"):
+    st.json(results_data) # Show the raw data loaded from GCS
