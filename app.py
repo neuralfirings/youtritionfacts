@@ -240,7 +240,7 @@ with st.container(key="yt"):
                 # st.rerun()
             # Error messages are handled within     run_analysis_workflow
     
-    st.html('<div class="divider-thick"></div>')
+    st.html('<div class="divider-thick"></div>') 
 
     # Load and display results from GCS
     if gcs_client and gcs_bucket:
