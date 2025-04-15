@@ -297,17 +297,17 @@ def analyze_video_gcs(gcs_blob_name, gcs_client, gcs_bucket):
 
 def load_results_gcs(gcs_client, gcs_bucket):
     """Loads results dictionary from results.json in GCS."""
-    logger.info(f"Loading results from GCS blob: {GCS_RESULTS_BLOB}")
+    # logger.info(f"Loading results from GCS blob: {GCS_RESULTS_BLOB}")
     results = gcs_utils.download_json_blob(gcs_bucket, GCS_RESULTS_BLOB)
     if results is None:
         logger.error("Failed to download or parse results JSON from GCS.")
         return {} # Return empty dict on error or if not found
-    logger.info(f"Loaded {len(results)} results from GCS.")
+    # logger.info(f"Loaded {len(results)} results from GCS.")
     return results
 
 def save_results_gcs(data, gcs_client, gcs_bucket):
     """Saves results dictionary to results.json in GCS."""
-    logger.info(f"Saving {len(data)} results to GCS blob: {GCS_RESULTS_BLOB}")
+    # logger.info(f"Saving {len(data)} results to GCS blob: {GCS_RESULTS_BLOB}")
     success = gcs_utils.upload_json_blob(gcs_bucket, data, GCS_RESULTS_BLOB)
     if success:
         logger.info("Results saved successfully to GCS.")

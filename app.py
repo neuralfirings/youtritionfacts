@@ -5,7 +5,7 @@ import os
 import json
 import pandas as pd
 import streamlit.components.v1 as components
-from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, DataReturnMode, JsCode
+from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, ColumnsAutoSizeMode, DataReturnMode, JsCode
 import logging
 
 # Import GCS utilities and analysis functions
@@ -290,42 +290,48 @@ with st.container(key="yt"):
             # title_link_renderer=JsCode('''function(params) {console.log(params);if(params.data.link != undefined) { return `<a href="${params.data.link}" target="_blank">${params.value}</a>`} else { return params.value }}''')
             gb.configure_column("title", headerName="Title",
                 cellRenderer=title_link_renderer,
-                maxWidth=200, #suppressSizeToFit=True
+                width=200,
                 resizable=True,
-                pinned="left"
+                pinned="left",
+                autoSizeStrategy=ColumnsAutoSizeMode.NO_AUTOSIZE
             )
                 # cellRendererParams={"innerRenderer": "html"}
             # )
             gb.configure_column("duration", headerName="Video Length") #, cellRenderer=title_link_renderer)
-            gb.configure_column("avgSceneDur", headerName="Avg Scene (sec)", sort='asc', sortIndex=0)
-            gb.configure_column("numScenes", headerName="Scene Count")
+            gb.configure_column("avgSceneDur", width=210, headerName="Avg Scene Length (sec)", sort='asc', sortIndex=0)
+            gb.configure_column("numScenes", hide=True, headerName="Scene Count")
             gb.configure_column("spm", hide=True, headerName="Scenes/Min")
-            gb.configure_column("avgColorSaturation", headerName="Color Saturation")
-            gb.configure_column("avgMotionDynamism", headerName="Motion")
-            gb.configure_column("avgObjectCount", headerName="Objects on Screen (Avg)")
-            gb.configure_column("maxObjectCount", headerName="Objects on Screen (Max)")
+            gb.configure_column("avgColorSaturation", width=180, headerName="Color Saturation")
+            gb.configure_column("avgMotionDynamism", width=180, headerName="Motion Dynamism")
+            gb.configure_column("avgObjectCount", width=210, headerName="Avg Objects on Screen")
+            gb.configure_column("maxObjectCount",  hide=True, width=210, headerName="Max Objects on Screen")
             gb.configure_column("link", hide=True, headerName="URL")
             gb.configure_grid_options(domLayout='normal')
             gb.configure_pagination(paginationAutoPageSize=False, paginationPageSize=15)
-            gb.configure_default_column(resizable=True, filterable=True, sortable=True, editable=False)
+            gb.configure_default_column(width=150, resizable=True, filterable=True, sortable=True, editable=False)#, suppressAutoSize=True)
 
             gridOptions = gb.build()
 
             search_query = st.text_input("🔍 Search Videos", "")
             gridOptions['quickFilterText'] = search_query
+            gridOptions['autoSizeStrategy'] = False #ColumnsAutoSizeMode.NO_AUTOSIZE
+            # print(gridOptions)
+            # gridOptions["autoSizeAllColumns"] = False
             AgGrid(
                 df, # Pass the original df with 'link' column
                 custom_css=yt_ag_css,
                 gridOptions=gridOptions,
                 update_mode=GridUpdateMode.MODEL_CHANGED, # Standard update mode
                 allow_unsafe_jscode=True,
-                enable_enterprise_modules=False,
+                # enable_enterprise_modules=False,
+                columns_auto_size_mode=ColumnsAutoSizeMode.NO_AUTOSIZE,
                 # fit_columns_on_grid_load=False,
                 height=500,
                 width='100%',
                 reload_data=True, # Important to reflect changes after analysis run + rerun
                 key='analysis_grid', # Add a key for stability,
             )
+
         else:
             st.info("No analysis history found. Run a new analysis to get started.")
     else:
