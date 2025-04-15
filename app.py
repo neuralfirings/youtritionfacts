@@ -298,7 +298,8 @@ return this.eGui;
             gb.configure_column("title", headerName="Title",
                 cellRenderer=title_link_renderer,
                 maxWidth=300, #suppressSizeToFit=True
-                resizable=True
+                resizable=True,
+                pinned="left"
             )
                 # cellRendererParams={"innerRenderer": "html"}
             # )
