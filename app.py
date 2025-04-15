@@ -23,13 +23,8 @@ from analyze_video import (
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# --- Constants ---
-# RESULTS_FILE = "./results.json" # No longer needed
-
-
-# --- Streamlit App Logic ---
+# --- Streamlit App Config ---
 st.set_page_config(layout="wide", page_icon=":material/smart_display:", page_title="YouTrition Facts") # must be first st command
-
 
 # --- GCS Initialization ---
 # Initialize client and bucket once using caching
@@ -45,14 +40,12 @@ def init_gcs():
         return client, None
     return client, bucket
 
+# Load GCS results object
 gcs_client, gcs_bucket = init_gcs()
-
-# Load and display results from GCS
 results_data_len=0
 if gcs_client and gcs_bucket:
     results_data = load_results_gcs(gcs_client, gcs_bucket) # Load directly from GCS
     results_data_len = len(results_data)
-# print(f">>>: {len(results_data)}")
 
 # Function to convert seconds to mm:ss format (ex: 123 -> 2:03)
 def s2mmss(seconds):
@@ -222,6 +215,7 @@ yt_ag_css = {
 }
 # endregion
 
+# Main UI (YouTrition Label)
 with st.container(key="yt"): 
     st.html('<h2><span style="background: #f00; color: #fff; padding: 10px; border-radius: 15px; margin-right: 5px">You</span>Trition Facts</h2>')
     st.html("""<div class="divider-thin"></div>""")
@@ -252,7 +246,7 @@ with st.container(key="yt"):
         st.markdown(f'<div class="calories"><span style="float: left">Videos Analyzed</span><span style="float: right">{results_data_len} total</span></div>', unsafe_allow_html=True)
         # st.subheader("📊 All Videos Analyzed")
         st.html('<span class="serving">Color saturation and motion are normalized to 0 (low) - 100 (high)</span>')
-        results_data = load_results_gcs(gcs_client, gcs_bucket) # Load directly from GCS
+        # results_data = load_results_gcs(gcs_client, gcs_bucket) # Load directly from GCS
 
         if results_data:
             df = pd.DataFrame(results_data)
@@ -277,23 +271,22 @@ with st.container(key="yt"):
             gb = GridOptionsBuilder.from_dataframe(df)
             gb.configure_column("ytKey", hide=True)
             title_link_renderer=JsCode("""class UrlCellRenderer {
-init(params) {
-this.eGui = document.createElement('a');
-this.eGui.innerText = params.value;
-if (params.data.link) {                      
-this.eGui.setAttribute('href', params.data.link);
-}
-else{                      
-this.eGui.setAttribute('href', '#');
-}
-this.eGui.setAttribute('target', '_blank');
-this.eGui.setAttribute('style', 'text-decoration:none; color:#2a5bd7;');
-}
-getGui() {
-return this.eGui;
-}
-}"""
-            )
+                init(params) {
+                    this.eGui = document.createElement('a');
+                    this.eGui.innerText = params.value;
+                    if (params.data.link) {                      
+                        this.eGui.setAttribute('href', params.data.link);
+                    }
+                    else{                      
+                        this.eGui.setAttribute('href', '#');
+                    }
+                    this.eGui.setAttribute('target', '_blank');
+                    this.eGui.setAttribute('style', 'text-decoration:none; color:#2a5bd7;');
+                }
+                getGui() {
+                    return this.eGui;
+                }
+            }""")
             # title_link_renderer=JsCode('''function(params) {console.log(params);if(params.data.link != undefined) { return `<a href="${params.data.link}" target="_blank">${params.value}</a>`} else { return params.value }}''')
             gb.configure_column("title", headerName="Title",
                 cellRenderer=title_link_renderer,
@@ -350,9 +343,8 @@ return this.eGui;
     else:
         st.warning("Data Store is not configured. Cannot load or save analysis history.")
 
-
-# citations
-st.subheader("Footnote")
+# Citations/Footnotes/JSON UI
+st.subheader("Footnotes")
 st.text("Some research related to the metrics used here")
 st.markdown("""* Re: __Average Scene Duration__ - [The Immediate Impact of Different Types of Television on Young Children's Executive Function](https://pmc.ncbi.nlm.nih.gov/articles/PMC9923845/#:~:text=Children%20who%20watched%20the%20fast,attention%2C%20age%2C%20and%20television%20exposure) (paper focuses on fast paced videos, with a priamry metric as scene duration)
 * Re: __Motion Dynamism__ Adding this metric since this is tangentially related to pacing
