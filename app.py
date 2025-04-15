@@ -290,7 +290,7 @@ with st.container(key="yt"):
             # title_link_renderer=JsCode('''function(params) {console.log(params);if(params.data.link != undefined) { return `<a href="${params.data.link}" target="_blank">${params.value}</a>`} else { return params.value }}''')
             gb.configure_column("title", headerName="Title",
                 cellRenderer=title_link_renderer,
-                width=50, #suppressSizeToFit=True
+                maxWidth=200, #suppressSizeToFit=True
                 resizable=True,
                 pinned="left"
             )
