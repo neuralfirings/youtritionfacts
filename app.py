@@ -347,7 +347,7 @@ with st.container(key="yt"):
 
                     🎨 Colors below indicate percentiles: red (0–20% of worst performing), orange (20–40%), yellow (40–60%), lime (60–80%), and green (80–100% best performing) based on metric distribution. 
                     
-                    🧂 Please take this with a grain of salt! Just because something has low color saturation (e.g., a black-and-white cartoon) doesn’t mean it’s a “good” or “bad” video. Context matters, and a single metric doesn’t capture the full picture of what makes content developmentally appropriate or engaging for kids.
+                    🧂 Please take this with a grain of salt! A low color saturation score (e.g., from a black-and-white cartoon) doesn’t automatically make a video “good” or “bad.” Likewise, being in the bottom or top percentiles for a metric doesn’t imply poor or great quality — it just reflects how that video compares to others in this dataset. All the videos might be strong on a given metric, so percentile rankings should be seen as relative, not absolute. Context matters, and no single metric tells the whole story about a video's developmental value.
         """, unsafe_allow_html=True)
         # results_data = load_results_gcs(gcs_client, gcs_bucket) # Load directly from GCS
 
