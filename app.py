@@ -349,7 +349,6 @@ with st.container(key="yt"):
                     
                     🧂 Please take this with a grain of salt! A low color saturation score (e.g., from a black-and-white cartoon) doesn’t automatically make a video “good” or “bad.” Likewise, being in the bottom or top percentiles for a metric doesn’t imply poor or great quality — it just reflects how that video compares to others in this dataset. All the videos might be strong on a given metric, so percentile rankings should be seen as relative, not absolute. Context matters, and no single metric tells the whole story about a video's developmental value.
         """, unsafe_allow_html=True)
-        # results_data = load_results_gcs(gcs_client, gcs_bucket) # Load directly from GCS
 
         if results_data:
             df = pd.DataFrame(results_data)
