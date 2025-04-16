@@ -311,7 +311,7 @@ def percentile_thresholds(series):
 # Main UI (YouTrition Label)
 with st.container(key="yt"): 
     st.html('<h2><span style="background: #f00; color: #fff; padding: 10px; border-radius: 15px; margin-right: 5px">You</span>Trition Facts</h2>')
-    st.html("""<div class="divider-thin"></div>""")
+    # st.html("""<div class="divider-thin"></div>""")
     # st.html(f"""<span class="serving">Analyze pacing, saturation, visual complexity, and more. I validated scene duration metrics by manually comparing a handful of videos. For the other metrics, I'll publish more detail on the code. Check out the <a href="#faqs">FAQs</a> for more information on these metrics, with citations!</span>""")
     # st.html("""<div class="divider-thick"></div>""")
     youtube_url = st.text_input("🎥 Paste a YouTube URL")
@@ -332,14 +332,16 @@ with st.container(key="yt"):
                 # st.rerun()
             # Error messages are handled within     run_analysis_workflow
     
-    st.html('<div class="divider-thick"></div>') 
 
     # Load and display results from GCS
     if gcs_client and gcs_bucket:
-        st.markdown(f'<div class="calories"><span style="float: left">Videos Analyzed</span><span style="float: right">{results_data_len} total</span></div>', unsafe_allow_html=True)
-        # st.subheader("📊 All Videos Analyzed")
-        st.html('<span class="serving">See <a href="#table-1-metrics-so-many-metrics">Metrics Table</a> for more info and juicy academic papers on how these metrics affect children\'s development.</span>')
+        # # st.subheader("📊 All Videos Analyzed")
+        # st.html('<span class="serving">.</span>')
         st.markdown("""
+                    <div class="divider-thin" style="margin-bottom: 1rem"></div>
+
+                    4 metrics per analysis
+
                     * Avg Scene Length: lower scene duration can overstimulate. 
                     * Motion Dynamism: high motion dynamism can cause visual fatigue. Metrics here are normalized to 0 (paint drying) to 100 (zoomies!). 
                     * Objects on Screen: busy environments can result in distractions and diminshed learning gains. 
@@ -347,8 +349,13 @@ with st.container(key="yt"):
 
                     🎨 Colors below indicate percentiles: red (0–20% of worst performing), orange (20–40%), yellow (40–60%), lime (60–80%), and green (80–100% best performing) based on metric distribution. 
                     
-                    🧂 Please take this with a grain of salt! A low color saturation score (e.g., from a black-and-white cartoon) doesn’t automatically make a video “good” or “bad.” Likewise, being in the bottom or top percentiles for a metric doesn’t imply poor or great quality — it just reflects how that video compares to others in this dataset. All the videos might be strong on a given metric, so percentile rankings should be seen as relative, not absolute. Context matters, and no single metric tells the whole story about a video's developmental value.
-        """, unsafe_allow_html=True)
+                    🧂 Please take this with a grain of salt! A low color saturation score (e.g., from a black-and-white cartoon) doesn’t automatically make a video “good” or “bad.” Context matters, and no single metric tells the whole story about a video's developmental value. Also, being in the bottom or top percentiles for a metric doesn’t imply poor or great quality — it just reflects how that video compares to others in this dataset. The color coding should be seen as relative, not absolute data. More info found in the [Metrics Table](#table-1-metrics-so-many-metrics), and also some juicy academic papers in the footnotes on how these metrics affect children\'s development.
+
+                     """, unsafe_allow_html=True)
+
+        st.html('<div class="divider-thick"></div>') 
+
+        st.markdown(f'<div class="calories"><span style="float: left">Videos Analyzed</span><span style="float: right">{results_data_len} total</span></div>', unsafe_allow_html=True)
 
         if results_data:
             df = pd.DataFrame(results_data)
