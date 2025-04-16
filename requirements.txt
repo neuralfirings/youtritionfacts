@@ -5,3 +5,4 @@ yt-dlp
 streamlit-aggrid
 google-cloud-storage
 numpy
+scikit-image
