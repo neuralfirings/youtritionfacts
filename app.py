@@ -7,6 +7,7 @@ import pandas as pd
 import streamlit.components.v1 as components
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, ColumnsAutoSizeMode, DataReturnMode, JsCode
 import logging
+import numpy as np
 
 # Import GCS utilities and analysis functions
 import gcs_utils
@@ -213,8 +214,99 @@ yt_ag_css = {
         "display": "inline-block",
         "width": "calc(100% - 10px)",
     },
+    ".ag-row:hover": {
+        "background-color": "#e0f7fa !important",  # light cyan
+    },
+    ".ag-row.ag-row-hover": {
+        "background-color": "#e0f7fa !important",
+    }
 }
 # endregion
+
+# region Add JsCode renderers for visual cell coloring
+scene_length_renderer = JsCode("""class SceneLengthRenderer {
+    init(params) {
+        const value = parseFloat(params.value);
+        const { p0, p20, p40, p60, p80, p100 } = params.colDef.cellRendererParams;
+        let color = '#d3f9d8'; // green
+        if (value <= p20) color = '#ffe3e3'; // red
+        else if (value <= p40) color = '#ffe8cc'; // orange
+        else if (value <= p60) color = '#fff3bf'; // yellow
+        else if (value <= p80) color = '#e9fac8'; // lime
+        this.eGui = document.createElement('div');
+        this.eGui.innerText = value;
+        this.eGui.setAttribute('style', `background-color:${color}; padding:5px`);
+    }
+    getGui() {
+        return this.eGui;
+    }
+}""")
+
+motion_renderer = JsCode("""class MotionRenderer {
+    init(params) {
+        const value = parseFloat(params.value);
+        const { p0, p20, p40, p60, p80, p100 } = params.colDef.cellRendererParams;
+        let color = '#d3f9d8';
+        if (value >= p80) color = '#ffe3e3';
+        else if (value >= p60) color = '#ffe8cc';
+        else if (value >= p40) color = '#fff3bf';
+        else if (value >= p20) color = '#e9fac8';
+        this.eGui = document.createElement('div');
+        this.eGui.innerText = value;
+        this.eGui.setAttribute('style', `background-color:${color}; padding:5px`);
+    }
+    getGui() {
+        return this.eGui;
+    }
+}""")
+
+saturation_renderer = JsCode("""class SaturationRenderer {
+    init(params) {
+        const value = parseFloat(params.value);
+        const { p0, p20, p40, p60, p80, p100 } = params.colDef.cellRendererParams;
+        let color = '#d3f9d8';
+        if (value >= p80) color = '#ffe3e3';
+        else if (value >= p60) color = '#ffe8cc';
+        else if (value >= p40) color = '#fff3bf';
+        else if (value >= p20) color = '#e9fac8';
+        this.eGui = document.createElement('div');
+        this.eGui.innerText = value;
+        this.eGui.setAttribute('style', `background-color:${color}; padding:5px`);
+    }
+    getGui() {
+        return this.eGui;
+    }
+}""")
+
+objects_renderer = JsCode("""class ObjectsRenderer {
+    init(params) {
+        const value = parseFloat(params.value);
+        const { p0, p20, p40, p60, p80, p100 } = params.colDef.cellRendererParams;
+        let color = '#d3f9d8';
+        if (value >= p80) color = '#ffe3e3';
+        else if (value >= p60) color = '#ffe8cc';
+        else if (value >= p40) color = '#fff3bf';
+        else if (value >= p20) color = '#e9fac8';
+        this.eGui = document.createElement('div');
+        this.eGui.innerText = value;
+        this.eGui.setAttribute('style', `background-color:${color}; padding:5px`);
+    }
+    getGui() {
+        return this.eGui;
+    }
+}""")
+# endregion
+
+# Helper to calculate percentiles
+def percentile_thresholds(series):
+    return {
+        "p0": float(np.percentile(series, 0)),
+        "p20": float(np.percentile(series, 20)),
+        "p40": float(np.percentile(series, 40)),
+        "p60": float(np.percentile(series, 60)),
+        "p80": float(np.percentile(series, 80)),
+        "p100": float(np.percentile(series, 100)),
+    }
 
 # Main UI (YouTrition Label)
 with st.container(key="yt"): 
@@ -248,15 +340,23 @@ with st.container(key="yt"):
         # st.subheader("📊 All Videos Analyzed")
         st.html('<span class="serving">See <a href="#table-1-metrics-so-many-metrics">Metrics Table</a> for more info and juicy academic papers on how these metrics affect children\'s development.</span>')
         st.markdown("""
-                    * ⬆👍🏻 Avg Scene Length: lower scene duration can overstimulate 
-                    * ⬇👍🏻 Motion Dynamism: high motion dynamism can cause visual fatigue. Metrics here are normalized to 0 (paint drying) to 100 (zoomies!).
-                    * ⬇👍🏻 Objects on Screen: busy environments can result in distractions and diminshed learning gains
-                    * ⬇👍🏻 Color Saturation: high color use can cause visual fatigue. Metrics below are normalized to 0 (sad beige videos) to 100 (eighties are back!).
+                    * Avg Scene Length: lower scene duration can overstimulate. 
+                    * Motion Dynamism: high motion dynamism can cause visual fatigue. Metrics here are normalized to 0 (paint drying) to 100 (zoomies!). 
+                    * Objects on Screen: busy environments can result in distractions and diminshed learning gains. 
+                    * Color Saturation: high color use can cause visual fatigue. Metrics below are normalized to 0 (sad beige videos) to 100 (eighties are back!). 
+
+                    🎨 Colors below indicate percentiles: red (0–20% of worst performing), orange (20–40%), yellow (40–60%), lime (60–80%), and green (80–100% best performing) based on metric distribution. 
+                    
+                    🧂 Please take this with a grain of salt! Just because something has low color saturation (e.g., a black-and-white cartoon) doesn’t mean it’s a “good” or “bad” video. Context matters, and a single metric doesn’t capture the full picture of what makes content developmentally appropriate or engaging for kids.
         """, unsafe_allow_html=True)
         # results_data = load_results_gcs(gcs_client, gcs_bucket) # Load directly from GCS
 
         if results_data:
             df = pd.DataFrame(results_data)
+            scene_thresholds = percentile_thresholds(df["avgSceneDur"])
+            motion_thresholds = percentile_thresholds(df["avgMotionDynamism"])
+            saturation_thresholds = percentile_thresholds(df["avgColorSaturation"])
+            object_thresholds = percentile_thresholds(df["avgObjectCount"])
 
             column_order = [
                 'title',
@@ -293,7 +393,7 @@ with st.container(key="yt"):
                 getGui() {
                     return this.eGui;
                 }
-            }"""    )
+            }""")
             # title_link_renderer=JsCode('''function(params) {console.log(params);if(params.data.link != undefined) { return `<a href="${params.data.link}" target="_blank">${params.value}</a>`} else { return params.value }}''')
             gb.configure_column("title", headerName="Title",
                 cellRenderer=title_link_renderer,
@@ -305,17 +405,35 @@ with st.container(key="yt"):
                 # cellRendererParams={"innerRenderer": "html"}
             # )
             gb.configure_column("duration", headerName="Video Length") #, cellRenderer=title_link_renderer)
-            gb.configure_column("avgSceneDur", width=210, headerName="Avg Scene Length (sec)", sort='asc', sortIndex=0)
+            # gb.configure_column("avgSceneDur", width=210, headerName="Avg Scene Length (sec)", sort='asc', sortIndex=0)
             gb.configure_column("numScenes", hide=True, headerName="Scene Count")
             gb.configure_column("spm", hide=True, headerName="Scenes/Min")
-            gb.configure_column("avgColorSaturation", width=180, headerName="Color Saturation")
-            gb.configure_column("avgMotionDynamism", width=180, headerName="Motion Dynamism")
-            gb.configure_column("avgObjectCount", width=210, headerName="Avg Objects on Screen")
+            # gb.configure_column("avgColorSaturation", width=180, headerName="Color Saturation")
+            # gb.configure_column("avgMotionDynamism", width=180, headerName="Motion Dynamism")
+            # gb.configure_column("avgObjectCount", width=210, headerName="Avg Objects on Screen")
+
+            gb.configure_column("avgSceneDur", width=210, headerName="Avg Scene Length (sec)", sort='asc', sortIndex=0,
+                                cellRenderer=scene_length_renderer, cellRendererParams=scene_thresholds)
+            gb.configure_column("avgColorSaturation", width=180, headerName="Color Saturation",
+                                cellRenderer=saturation_renderer, cellRendererParams=saturation_thresholds)
+            gb.configure_column("avgMotionDynamism", width=180, headerName="Motion Dynamism",
+                                cellRenderer=motion_renderer, cellRendererParams=motion_thresholds)
+            gb.configure_column("avgObjectCount", width=210, headerName="Avg Objects on Screen",
+                                cellRenderer=objects_renderer, cellRendererParams=object_thresholds)
+
+
             gb.configure_column("maxObjectCount",  hide=True, width=210, headerName="Max Objects on Screen")
             gb.configure_column("link", hide=True, headerName="URL")
+            gb.configure_column("avgSceneDur", width=210, headerName="Avg Scene Length (sec)", sort='asc', sortIndex=0, cellRenderer=scene_length_renderer)
+            gb.configure_column("avgColorSaturation", width=180, headerName="Color Saturation", cellRenderer=saturation_renderer)
+            gb.configure_column("avgMotionDynamism", width=180, headerName="Motion Dynamism", cellRenderer=motion_renderer)
+            gb.configure_column("avgObjectCount", width=210, headerName="Avg Objects on Screen", cellRenderer=objects_renderer)
+
             gb.configure_grid_options(domLayout='normal')
             gb.configure_pagination(paginationAutoPageSize=False, paginationPageSize=15)
             gb.configure_default_column(width=150, resizable=True, filterable=True, sortable=True, editable=False)#, suppressAutoSize=True)
+
+
 
             gridOptions = gb.build()
 
@@ -405,3 +523,6 @@ st.markdown(
 
 # with st.expander("📄 Raw JSON"):
 #     st.json(results_data) # Show the raw data loaded from GCS
+
+
+

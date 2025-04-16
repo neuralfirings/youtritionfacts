@@ -4,3 +4,4 @@ opencv-python-headless
 yt-dlp
 streamlit-aggrid
 google-cloud-storage
+numpy
