@@ -1,11 +1,7 @@
 # /Users/nyl/git_projects/youtritionfacts/app.py
 import streamlit as st
-import os
-# import subprocess # No longer needed for running the script
-import json
 import pandas as pd
-import streamlit.components.v1 as components
-from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, ColumnsAutoSizeMode, DataReturnMode, JsCode
+from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, ColumnsAutoSizeMode, JsCode
 import logging
 import numpy as np
 
@@ -49,12 +45,6 @@ if gcs_client and gcs_bucket:
     results_data = load_results_gcs(gcs_client, gcs_bucket) # Load directly from GCS
     results_data_len = len(results_data)
 
-# # Function to convert seconds to mm:ss format (ex: 123 -> 2:03)
-# def s2mmss(seconds):
-#     minutes = int(seconds) // 60
-#     secs = int(seconds) % 60
-#     return f"{minutes:02d}:{secs:02d}"
-
 # Function to run the analysis workflow directly
 def run_analysis_workflow(url, client, bucket):
     if not client or not bucket:
@@ -71,7 +61,7 @@ def run_analysis_workflow(url, client, bucket):
     try:
         # 1. Download/Upload Video
         status_placeholder.info(f"🔄 Taking a look at video '{url_key}'...")
-        gcs_blob_name, title = download_youtube_video_gcs(url, url_key, client, bucket)
+        gcs_blob_name, title, clip_start, clip_end, duration = download_youtube_video_gcs(url, url_key, client, bucket)
         if not gcs_blob_name:
             if title: 
                 st.error(title)
@@ -82,7 +72,7 @@ def run_analysis_workflow(url, client, bucket):
 
         # 2. Analyze Video from GCS
         status_placeholder.info(f"🔬 Analyzing video '{title}'...")
-        analysis = analyze_video_gcs(gcs_blob_name, client, bucket)
+        analysis = analyze_video_gcs(gcs_blob_name, client, bucket, 0 if clip_start is None else clip_start)
         if not analysis:
             st.error("Video analysis failed.")
             return False, None
@@ -96,7 +86,7 @@ def run_analysis_workflow(url, client, bucket):
             "ytKey": url_key,
             "link": f"https://www.youtube.com/watch?v={url_key}",
             "title": title,
-            "duration": round(analysis['duration'], 2),
+            "duration": duration, #round(analysis['duration'], 2),
             "numScenes": analysis['scene_count'],
             "spm": round(analysis['scenes_per_minute'], 2),
             "avgSceneDur": round(analysis['avg_scene_duration'], 2),
@@ -104,12 +94,20 @@ def run_analysis_workflow(url, client, bucket):
             "avgMotionDynamism": round(analysis['motion_dynamism'], 2),
             "avgObjectCount": round(analysis['avg_object_count'], 2),
             "maxObjectCount": analysis['max_object_count'],
-            "sceneChangeTimestamps": analysis['scene_change_timestamps']
+            "sceneChangeTimestamps": analysis['scene_change_timestamps'],
+            "clipped": clip_end is not None,
+            "clipStart": clip_start,
+            "clipEnd": clip_end
         }
         updated_existing = False
+        updated_index = -1
         for i, item in enumerate(results):
             if item['ytKey'] == url_key:
-                results[i] = new_analysis_db_item
+                updated_index = i
+                # results[i] = new_analysis_db_item
+                for k, v in new_analysis_db_item.items():
+                    if v is not None:
+                        results[i][k] = v
                 updated_existing = True
                 logger.info(f"Updated existing entry for {url_key}")
                 break
@@ -126,7 +124,7 @@ def run_analysis_workflow(url, client, bucket):
              # Decide if this is a critical failure
 
         status_placeholder.empty() # Clear status message
-        return True, new_analysis_db_item #results[url_key] # Indicate success and return the new entry
+        return True, new_analysis_db_item if updated_index == -1 else results[updated_index] #results[url_key] # Indicate success and return the new entry
 
     except Exception as e:
         logger.error(f"Error during analysis workflow for {url}: {e}", exc_info=True)
@@ -318,7 +316,7 @@ with st.container(key="yt"):
     if st.button("Run Analysis"):
         if not gcs_client or not gcs_bucket:
             st.error("Cannot run analysis because GCS is not configured correctly.")
-        elif youtube_url.strip() == "":
+        elif youtube_url.strip() ==     "":
             st.warning("Please enter a YouTube URL.")
         else:
             # Run the workflow directly, no subprocess
@@ -332,6 +330,16 @@ with st.container(key="yt"):
                 # st.rerun()
             # Error messages are handled within     run_analysis_workflow
     
+    # only show bulk‑analysis when running on localhost
+    if "dev_mode" in st.secrets and st.secrets["dev_mode"] == "True":
+        if st.button("[DEV] Run analysis on all videos"):
+            # iterate through every video link in results_data
+            for item in results_data:  # results_data loaded from GCS :contentReference[oaicite:0]{index=0}&#8203;:contentReference[oaicite:1]{index=1}
+                url = item["link"]
+                success, _ = run_analysis_workflow(url, gcs_client, gcs_bucket)  # existing workflow :contentReference[oaicite:2]{index=2}&#8203;:contentReference[oaicite:3]{index=3}
+                if not success:
+                    st.error(f"Analysis failed for {url}")
+            st.success("Analysis complete for all videos! Refresh to see updates.")
 
     # Load and display results from GCS
     if gcs_client and gcs_bucket:
@@ -356,7 +364,7 @@ with st.container(key="yt"):
         st.html('<div class="divider-thick"></div>') 
 
         st.markdown(f'<div class="calories"><span style="float: left">Videos Analyzed</span><span style="float: right">{results_data_len} total</span></div>', unsafe_allow_html=True)
-
+        st.text("* For videos longer than 10 minutes, we only look at a 10 min clip in the middle")
         if results_data:
             df = pd.DataFrame(results_data)
             scene_thresholds = percentile_thresholds(df["avgSceneDur"])

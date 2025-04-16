@@ -1,4 +1,3 @@
-# /Users/nyl/git_projects/youtritionfacts/analyze_video.py
 import os
 import json
 import csv
@@ -8,6 +7,7 @@ import numpy as np
 import yt_dlp
 import tempfile # Needed for temporary file handling
 import logging
+from skimage.metrics import structural_similarity as ssim
 
 # Import GCS utilities
 import gcs_utils
@@ -17,6 +17,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 MAX_VIDEO_DURATION_SECONDS = 600 # 10 min
+MIN_TIME_BETWEEN_SCENE_CHANGE = 1 # eliminate scene changes less than x second due to grid effect
+SCENE_CHANGE_SENSITIVITY = 0.8 # -1 < x < 1, higher = more sensitive to scene change
 
 # --- Constants ---
 # Define GCS paths (these can be prefixes/folders within your bucket)
@@ -30,14 +32,26 @@ def s2mmss(seconds):
     return f"{minutes:02d}:{secs:02d}"
 
 # --- Scene Change Analysis Functions (can tweak threshold) ---
-def is_scene_change(prev_frame, current_frame, threshold=0.5):
-    # ... (keep existing implementation)
+# histogram
+def is_scene_change(prev_frame, current_frame, threshold=SCENE_CHANGE_SENSITIVITY):
     prev_hist = cv2.calcHist([prev_frame], [0, 1], None, [50, 60], [0, 180, 0, 256])
     current_hist = cv2.calcHist([current_frame], [0, 1], None, [50, 60], [0, 180, 0, 256])
     cv2.normalize(prev_hist, prev_hist)
     cv2.normalize(current_hist, current_hist)
     score = cv2.compareHist(prev_hist, current_hist, cv2.HISTCMP_CORREL)
     return score < threshold
+
+# ssim
+# def is_scene_change(prev_frame, current_frame, threshold=0.90):
+#     gray_prev = cv2.cvtColor(prev_frame, cv2.COLOR_BGR2GRAY)
+#     gray_curr = cv2.cvtColor(current_frame, cv2.COLOR_BGR2GRAY)
+    
+#     # Slight blur to suppress noise-based differences
+#     gray_prev = cv2.GaussianBlur(gray_prev, (5, 5), 0)
+#     gray_curr = cv2.GaussianBlur(gray_curr, (5, 5), 0)
+
+#     score, _ = ssim(gray_prev, gray_curr, full=True)
+#     return score < threshold
 
 def get_url_key(youtube_url):
     # ... (keep existing implementation)
@@ -67,15 +81,13 @@ def crop_black_bars(frame, threshold=10, tolerance=0.99):
     return cropped
 
 # --- Modified GCS-Aware Functions ---
-
-def download_youtube_video_gcs(url, url_key, gcs_client, gcs_bucket):
+def download_youtube_video_gcs_old(url, url_key, gcs_client, gcs_bucket):
     """
     Downloads video if not in GCS, uploads it, and returns GCS blob name and title.
     """
     gcs_blob_name = f"{GCS_VIDEOS_PREFIX}{url_key}.mp4"
 
     # 1. Check if video already exists in GCS
-    print("check if video in GC")
     if gcs_utils.blob_exists(gcs_bucket, gcs_blob_name):
         logger.info(f"Video already exists in GCS: {gcs_blob_name}")
         # Try to get title from existing results in GCS
@@ -157,7 +169,96 @@ def download_youtube_video_gcs(url, url_key, gcs_client, gcs_bucket):
     # Should not reach here if successful or if an error occurred and was raised
     return None, title # Indicate failure
 
-def analyze_video_gcs(gcs_blob_name, gcs_client, gcs_bucket):
+# return: gcs_blob_name, video title or error message, clip start, clip end, total video duration
+def download_youtube_video_gcs(url, url_key, gcs_client, gcs_bucket, start_time=None, end_time=None):
+    """
+    Downloads video if not in GCS, uploads it, and returns GCS blob name, title, and optional clip range.
+    If the video exceeds the max duration, a middle 10-minute clip is downloaded.
+    """
+    gcs_blob_name = f"{GCS_VIDEOS_PREFIX}{url_key}.mp4"
+    clip_start = None
+    clip_end = None
+
+    if gcs_utils.blob_exists(gcs_bucket, gcs_blob_name):
+        logger.info(f"Video already exists in GCS: {gcs_blob_name}")
+        results_data = gcs_utils.download_json_blob(gcs_bucket, GCS_RESULTS_BLOB)
+        for i, item in enumerate(results_data):
+            if item['ytKey'] == url_key:
+                clip_start = item['clipStart'] if item.get('clipStart') is not None else 0
+                return gcs_blob_name, item['title'], clip_start, None, None
+        return gcs_blob_name, "Existing Video (Title Unknown)", None, None, None # if video title unknown but video file exists
+
+    logger.info(f"Video not found in GCS. Fetching metadata for {url}...")
+    ydl_opts_meta = {'quiet': True, 'noplaylist': True}
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts_meta) as ydl:
+            info = ydl.extract_info(url, download=False)
+            duration = info.get('duration')
+            title = info.get('title', 'Unknown Title')
+
+            if duration is None:
+                logger.warning(f"Could not extract duration for {url}. Proceeding with download cautiously.")
+            elif duration > MAX_VIDEO_DURATION_SECONDS:
+                clip_duration = MAX_VIDEO_DURATION_SECONDS
+                clip_start = (duration - clip_duration) // 2
+                clip_end = clip_start + clip_duration
+                logger.info(f"Video too long. Will clip from {clip_start}s to {clip_end}s.")
+                start_time = clip_start
+                end_time = clip_end
+
+    except yt_dlp.utils.DownloadError as e:
+        logger.error(f"yt-dlp error fetching metadata for {url}: {e}")
+        return None, None, None, None, None
+    except Exception as e:
+        logger.error(f"Unexpected error fetching metadata for {url}: {e}", exc_info=True)
+        return None, None, None, None, None
+
+    title = "Unknown Title"
+    with tempfile.TemporaryDirectory() as tmpdir:
+        local_temp_path_tmpl = os.path.join(tmpdir, f"{url_key}.%(ext)s")
+        ydl_opts = {
+            'outtmpl': local_temp_path_tmpl,
+            'format': 'best[ext=mp4]'
+        }
+
+        if start_time is not None and end_time is not None:
+            ydl_opts['download_ranges'] = {'ranges': [(start_time, end_time)]}
+
+        try:
+            # Add download range to ydl_opts only if clip_start and clip_end are defined
+            if clip_start is not None and clip_end is not None:
+                ydl_opts['download_ranges'] = lambda *_: [{"start_time": clip_start, "end_time": clip_end}]
+
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                downloaded_filename = ydl.prepare_filename(info)
+                title = info.get('title', 'Unknown Title')
+
+                if not os.path.exists(downloaded_filename):
+                    logger.error(f"yt-dlp reported success but file not found: {downloaded_filename}")
+                    raise FileNotFoundError(f"Downloaded file missing: {downloaded_filename}")
+
+                logger.info(f"Downloaded '{title}' to {downloaded_filename}")
+
+                logger.info(f"Uploading {downloaded_filename} to GCS bucket {gcs_bucket.name} as {gcs_blob_name}...")
+                if gcs_utils.upload_blob(gcs_bucket, downloaded_filename, gcs_blob_name):
+                    logger.info("Upload successful.")
+                    print("return 5")
+                    return gcs_blob_name, title, clip_start, clip_end, duration
+                else:
+                    logger.error("Upload to GCS failed.")
+                    raise Exception(f"Failed to upload {downloaded_filename} to GCS.")
+
+
+
+        except Exception as e:
+            logger.error(f"Error during download/upload for {url}: {e}", exc_info=True)
+            raise
+
+    return None, title, clip_start, clip_end, duration
+
+
+def analyze_video_gcs(gcs_blob_name, gcs_client, gcs_bucket, clip_start):
     """
     Downloads video from GCS to a temporary file and analyzes it.
     """
@@ -194,6 +295,7 @@ def analyze_video_gcs(gcs_blob_name, gcs_client, gcs_bucket):
         prev_frame, prev_gray = None, None
         scene_changes = 0
         scene_change_timestamps = []
+        last_scene_change_in_seconds = 0
         saturation_values = []
         motion_scores = []
         edge_counts = []
@@ -210,12 +312,12 @@ def analyze_video_gcs(gcs_blob_name, gcs_client, gcs_bucket):
                 frame_resized = cv2.resize(frame, (320, 180))
                 frame_resized = crop_black_bars(frame_resized)
                 if frame_resized is None or frame_resized.size == 0:
-                    logger.warning(f"Frame {frame_num} resulted in empty frame after cropping, skipping.")
+                    logger.warning(f"Frame {frame_num} ({s2mmss(frame_num/fps)}) resulted in empty frame after cropping, skipping.")
                     continue
 
                 # Check if gray exists from previous iteration before shape comparison
                 if prev_gray is not None and 'gray' in locals() and gray.shape != prev_gray.shape:
-                    logger.warning(f"Frame {frame_num} shape mismatch after crop/resize, resetting prev_gray.")
+                    logger.warning(f"Frame {frame_num} ({s2mmss(frame_num/fps)}) shape mismatch after crop/resize, resetting prev_gray.")
                     prev_gray = None # Reset to avoid error, might slightly affect motion calc for this frame pair
 
                 hsv = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2HSV)
@@ -240,11 +342,15 @@ def analyze_video_gcs(gcs_blob_name, gcs_client, gcs_bucket):
                 if prev_frame is not None:
                     # Ensure prev_frame has compatible dimensions before comparison
                     if prev_frame.shape == frame_resized.shape and prev_frame.size > 0 and frame_resized.size > 0:
-                         if is_scene_change(prev_frame, frame_resized):
-                            scene_changes += 1
-                            scene_change_timestamps.append(s2mmss(frame_num/fps))
+                         if is_scene_change(prev_frame, frame_resized): 
+                            curr_frame_in_seconds = frame_num /fps
+                            # print(f"detect scene change: {s2mmss(curr_frame_in_seconds)}")
+                            if curr_frame_in_seconds - last_scene_change_in_seconds >= MIN_TIME_BETWEEN_SCENE_CHANGE:
+                                scene_changes += 1
+                                last_scene_change_in_seconds = curr_frame_in_seconds
+                                scene_change_timestamps.append(s2mmss(curr_frame_in_seconds + clip_start))
                     else:
-                         logger.warning(f"Frame {frame_num} shape mismatch for scene change detection, skipping comparison.")
+                         logger.warning(f"Frame {frame_num} ({s2mmss(frame_num/fps)}) shape mismatch for scene change detection, skipping comparison.")
 
 
                 # Visual Complexity (Edge Count)
@@ -321,81 +427,3 @@ def save_results_gcs(data, gcs_client, gcs_bucket):
     # Removed CSV saving logic - app.py will display from the loaded GCS data
     # save_csv_from_json(RESULTS_FILE, RESULTS_FILE_CSV) # Remove this line
     return success
-
-# --- Main function (for command-line execution, less relevant for Streamlit app) ---
-
-def main():
-    parser = argparse.ArgumentParser(description="Analyze YouTube video metrics and store results in GCS.")
-    parser.add_argument('--url', required=True, help='YouTube video URL')
-    # Add optional arguments for bucket name if needed for CLI, but secrets are preferred
-    # parser.add_argument('--bucket', help='GCS Bucket Name (overrides secrets/env)')
-    args = parser.parse_args()
-
-    # --- Initialize GCS ---
-    gcs_client = gcs_utils.get_gcs_client()
-    if not gcs_client:
-        print("Failed to initialize GCS Client. Exiting.")
-        return # Or raise an error
-
-    gcs_bucket = gcs_utils.get_bucket(gcs_client)
-    if not gcs_bucket:
-        print(f"Failed to access GCS Bucket. Exiting.")
-        return # Or raise an error
-    # --- End GCS Init ---
-
-    url_key = get_url_key(args.url)
-
-    try:
-        # 1. Download/Upload Video
-        print(f">>>>> Checking/Downloading video for URL key: {url_key}")
-        gcs_blob_name, title = download_youtube_video_gcs(args.url, url_key, gcs_client, gcs_bucket)
-
-        if not gcs_blob_name:
-             print("Failed to get video into GCS. Exiting.")
-             return
-
-        # 2. Analyze Video from GCS
-        print(f"Analyzing video from GCS blob: {gcs_blob_name}...")
-        analysis = analyze_video_gcs(gcs_blob_name, gcs_client, gcs_bucket)
-
-        if not analysis:
-            print("Video analysis failed. Exiting.")
-            return
-
-        # 3. Load existing results from GCS
-        print("Loading existing results from GCS...")
-        results = load_results_gcs(gcs_client, gcs_bucket)
-        print(results)
-
-        # 4. Update results
-        results[url_key] = {
-            'urlKey': url_key,
-            'link': f"https://www.youtube.com/watch?v={url_key}",
-            'title': title,
-            'duration (sec)': round(analysis['duration'], 2),
-            'scene count': analysis['scene_count'],
-            'scenes per minute': round(analysis['scenes_per_minute'], 2),
-            'avg scene duration (sec)': round(analysis['avg_scene_duration'], 2),
-            'avg color saturation (0-100)': round(analysis['avg_saturation'], 2),
-            'motion dynamism (0-100)': round(analysis['motion_dynamism'], 2),
-            'avg object count': round(analysis['avg_object_count'], 2),
-            'max object count': analysis['max_object_count'], 
-        }
-
-        # 5. Save updated results to GCS
-        print("Saving updated results to GCS...")
-        save_results_gcs(results, gcs_client, gcs_bucket)
-
-        print(f"\n--- Video Analysis Results: {title} ---")
-        for k, v in results[url_key].items():
-            print(f"{k}: {v}")
-
-    except Exception as e:
-        print(f"\n--- An error occurred ---")
-        print(f"Error: {e}")
-        # Potentially log the full traceback here for debugging
-        logger.error(f"Error during analysis process for {args.url}: {e}", exc_info=True)
-
-
-if __name__ == "__main__":
-    main()
