@@ -17,7 +17,7 @@ from analyze_video import (
     s2mmss
 )
 
-# Configure logging (optional but helpful)
+# Configure logging (optional but helpful) 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
