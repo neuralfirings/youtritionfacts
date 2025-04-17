@@ -46,7 +46,7 @@ if gcs_client and gcs_bucket:
     results_data_len = len(results_data)
 
 # Function to run the analysis workflow directly
-def run_analysis_workflow(url, client, bucket):
+def run_analysis_workflow(url, series, episode, client, bucket):
     if not client or not bucket:
         st.error("GCS client or bucket not initialized. Cannot run analysis.")
         return False, None # Indicate failure
@@ -86,6 +86,8 @@ def run_analysis_workflow(url, client, bucket):
             "ytKey": url_key,
             "link": f"https://www.youtube.com/watch?v={url_key}",
             "title": title,
+            "series": series,
+            "episode": episode,
             "duration": duration, #round(analysis['duration'], 2),
             "numScenes": analysis['scene_count'],
             "spm": round(analysis['scenes_per_minute'], 2),
@@ -106,7 +108,7 @@ def run_analysis_workflow(url, client, bucket):
                 updated_index = i
                 # results[i] = new_analysis_db_item
                 for k, v in new_analysis_db_item.items():
-                    if v is not None:
+                    if v is not None and v != "":
                         results[i][k] = v
                 updated_existing = True
                 logger.info(f"Updated existing entry for {url_key}")
@@ -114,8 +116,6 @@ def run_analysis_workflow(url, client, bucket):
         if not updated_existing:
             results.append(new_analysis_db_item) 
             logger.info(f"Appended new entry for {url_key}")
-
-        # print(f"new results: {results}")
 
         # 5. Save updated results to GCS
         status_placeholder.info("💾 Saving updated results to GCS...")
@@ -313,6 +313,8 @@ with st.container(key="yt"):
     # st.html(f"""<span class="serving">Analyze pacing, saturation, visual complexity, and more. I validated scene duration metrics by manually comparing a handful of videos. For the other metrics, I'll publish more detail on the code. Check out the <a href="#faqs">FAQs</a> for more information on these metrics, with citations!</span>""")
     # st.html("""<div class="divider-thick"></div>""")
     youtube_url = st.text_input("🎥 Paste a YouTube URL")
+    series = st.text_input("Series (optional)")
+    episode = st.text_input("Episode or Clip Name (optional)")
     if st.button("Run Analysis"):
         if not gcs_client or not gcs_bucket:
             st.error("Cannot run analysis because GCS is not configured correctly.")
@@ -320,7 +322,7 @@ with st.container(key="yt"):
             st.warning("Please enter a YouTube URL.")
         else:
             # Run the workflow directly, no subprocess
-            success, analysis_output = run_analysis_workflow(youtube_url, gcs_client, gcs_bucket)
+            success, analysis_output = run_analysis_workflow(youtube_url, series, episode, gcs_client, gcs_bucket)
 
             if success:
                 st.success("Analysis complete! Refresh page to see this result updated in table below.")
@@ -336,7 +338,7 @@ with st.container(key="yt"):
             # iterate through every video link in results_data
             for item in results_data:  # results_data loaded from GCS :contentReference[oaicite:0]{index=0}&#8203;:contentReference[oaicite:1]{index=1}
                 url = item["link"]
-                success, _ = run_analysis_workflow(url, gcs_client, gcs_bucket)  # existing workflow :contentReference[oaicite:2]{index=2}&#8203;:contentReference[oaicite:3]{index=3}
+                success, _ = run_analysis_workflow(url, None, None, gcs_client, gcs_bucket)  # existing workflow :contentReference[oaicite:2]{index=2}&#8203;:contentReference[oaicite:3]{index=3}
                 if not success:
                     st.error(f"Analysis failed for {url}")
             st.success("Analysis complete for all videos! Refresh to see updates.")
@@ -367,6 +369,16 @@ with st.container(key="yt"):
         st.text("* For videos longer than 10 minutes, we only look at a 10 min clip in the middle")
         if results_data:
             df = pd.DataFrame(results_data)
+
+            # apply title (video title) to episode column if episode is None or empty string
+            df.loc[df['episode'].isna() | (df['episode'] == ""), 'episode'] = df['title']
+
+            # Ensure optional columns exist with default blank values
+            optional_columns = ['series', 'episode']
+            for col in optional_columns:
+                if col not in df.columns:
+                    df[col] = ""
+
             scene_thresholds = percentile_thresholds(df["avgSceneDur"])
             motion_thresholds = percentile_thresholds(df["avgMotionDynamism"])
             saturation_thresholds = percentile_thresholds(df["avgColorSaturation"])
@@ -374,6 +386,8 @@ with st.container(key="yt"):
 
             column_order = [
                 'title',
+                'series',
+                'episode',
                 'duration',
                 'avgSceneDur',
                 'numScenes',
@@ -394,7 +408,7 @@ with st.container(key="yt"):
             title_link_renderer=JsCode("""class UrlCellRenderer {
                 init(params) {
                     this.eGui = document.createElement('a');
-                    this.eGui.innerText = params.value;
+                    this.eGui.innerText = "link"; //params.value;
                     if (params.data.link) {                      
                         this.eGui.setAttribute('href', params.data.link);
                     }
@@ -409,9 +423,9 @@ with st.container(key="yt"):
                 }
             }""")
             # title_link_renderer=JsCode('''function(params) {console.log(params);if(params.data.link != undefined) { return `<a href="${params.data.link}" target="_blank">${params.value}</a>`} else { return params.value }}''')
-            gb.configure_column("title", headerName="Title",
+            gb.configure_column("title", headerName="",
                 cellRenderer=title_link_renderer,
-                width=200,
+                width=50,
                 resizable=True,
                 pinned="left",
                 autoSizeStrategy=ColumnsAutoSizeMode.NO_AUTOSIZE
