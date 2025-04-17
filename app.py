@@ -71,7 +71,7 @@ def run_analysis_workflow(url, series, episode, client, bucket):
             return False, None
 
         # 2. Analyze Video from GCS
-        status_placeholder.info(f"🔬 Analyzing video '{title}'...")
+        status_placeholder.info(f"🔬 Analyzing video '{title}'... this can take a few minutes")
         analysis = analyze_video_gcs(gcs_blob_name, client, bucket, 0 if clip_start is None else clip_start)
         if not analysis:
             st.error("Video analysis failed.")
@@ -144,7 +144,7 @@ st.markdown("""
     margin-bottom: 20px;
 }
 .st-key-yt h2 {
-    font-size: 3rem;
+    font-size: 2rem;
     font-weight: 900;
     margin: 0;
     padding-bottom: 4px;
@@ -179,6 +179,7 @@ div[data-baseweb="input"] {
     border-radius: 0px !important;
 }
 .stMainBlockContainer { margin-top: -50px }
+#footnotes { font-size: 2rem; border-top: solid 1px; margin-top: 2rem;}
 </style>""", unsafe_allow_html=True)
 
 yt_ag_css = {
@@ -349,24 +350,13 @@ with st.container(key="yt"):
         # st.html('<span class="serving">.</span>')
         st.markdown("""
                     <div class="divider-thin" style="margin-bottom: 1rem"></div>
-
-                    4 metrics per analysis
-
-                    * Avg Scene Length: lower scene duration can overstimulate. 
-                    * Motion Dynamism: high motion dynamism can cause visual fatigue. Metrics here are normalized to 0 (paint drying) to 100 (zoomies!). 
-                    * Objects on Screen: busy environments can result in distractions and diminshed learning gains. 
-                    * Color Saturation: high color use can cause visual fatigue. Metrics below are normalized to 0 (sad beige videos) to 100 (eighties are back!). 
-
-                    🎨 Colors below indicate percentiles: red (0–20% of worst performing), orange (20–40%), yellow (40–60%), lime (60–80%), and green (80–100% best performing) based on metric distribution. 
-                    
-                    🧂 Please take this with a grain of salt! A low color saturation score (e.g., from a black-and-white cartoon) doesn’t automatically make a video “good” or “bad.” Context matters, and no single metric tells the whole story about a video's developmental value. Also, being in the bottom or top percentiles for a metric doesn’t imply poor or great quality — it just reflects how that video compares to others in this dataset. The color coding should be seen as relative, not absolute data. More info found in the [Metrics Table](#table-1-metrics-so-many-metrics), and also some juicy academic papers in the footnotes on how these metrics affect children\'s development.
-
+                    <div class="serving">5 metrics per analysis</div>
                      """, unsafe_allow_html=True)
 
-        st.html('<div class="divider-thick"></div>') 
-
         st.markdown(f'<div class="calories"><span style="float: left">Videos Analyzed</span><span style="float: right">{results_data_len} total</span></div>', unsafe_allow_html=True)
-        st.text("* For videos longer than 10 minutes, we only look at a 10 min clip in the middle")
+        
+
+        st.html('<div class="divider-thick"></div>') 
         if results_data:
             df = pd.DataFrame(results_data)
 
@@ -385,9 +375,9 @@ with st.container(key="yt"):
             object_thresholds = percentile_thresholds(df["avgObjectCount"])
 
             column_order = [
-                'title',
                 'series',
                 'episode',
+                # 'title',
                 'duration',
                 'avgSceneDur',
                 'numScenes',
@@ -422,17 +412,39 @@ with st.container(key="yt"):
                     return this.eGui;
                 }
             }""")
+            episode_link_renderer=JsCode("""class UrlCellRenderer {
+                init(params) {
+                    this.eGui = document.createElement('a');
+                    this.eGui.innerText = params.value == "" ? "link" : params.value;
+                    if (params.data.link) {                      
+                        this.eGui.setAttribute('href', params.data.link);
+                    }
+                    else{                      
+                        this.eGui.setAttribute('href', '#');
+                    }
+                    this.eGui.setAttribute('target', '_blank');
+                    this.eGui.setAttribute('style', 'text-decoration:none; color:#2a5bd7;');
+                }
+                getGui() {
+                    return this.eGui;
+                }
+            }""")
             # title_link_renderer=JsCode('''function(params) {console.log(params);if(params.data.link != undefined) { return `<a href="${params.data.link}" target="_blank">${params.value}</a>`} else { return params.value }}''')
             gb.configure_column("title", headerName="",
                 cellRenderer=title_link_renderer,
                 width=50,
+                hide=True,
                 resizable=True,
-                pinned="left",
                 autoSizeStrategy=ColumnsAutoSizeMode.NO_AUTOSIZE
             )
-                # cellRendererParams={"innerRenderer": "html"}
-            # )
-            gb.configure_column("duration", headerName="Video Length") #, cellRenderer=title_link_renderer)
+            gb.configure_column("series", headerName="Series", pinned="left", width=100)
+            gb.configure_column("episode", headerName="Video",
+                cellRenderer=episode_link_renderer,
+                width=150,
+                resizable=True,
+                autoSizeStrategy=ColumnsAutoSizeMode.NO_AUTOSIZE
+            )
+            gb.configure_column("duration", headerName="Video Length*") #, cellRenderer=title_link_renderer)
             # gb.configure_column("avgSceneDur", width=210, headerName="Avg Scene Length (sec)", sort='asc', sortIndex=0)
             gb.configure_column("numScenes", hide=True, headerName="Scene Count")
             gb.configure_column("spm", hide=True, headerName="Scenes/Min")
@@ -484,6 +496,13 @@ with st.container(key="yt"):
                 reload_data=True, # Important to reflect changes after analysis run + rerun
                 key='analysis_grid', # Add a key for stability,
             )
+            st.text("* For videos longer than 10 minutes, we only analyzed a 10 min clip in the middle")
+
+            st.markdown("""
+                        🎨 Colors above indicate percentiles: red (0–20% of worst performing), orange (20–40%), etc. based on metric distribution. 
+                        
+                        🧂 Please take this with a grain of salt! A low color saturation score (e.g., from a black-and-white cartoon) doesn’t automatically make a video “good” or “bad.” Context matters, and no single metric tells the whole story about a video's developmental value. Also, being in the bottom or top percentiles for a metric doesn’t imply poor or great quality — it just reflects how that video compares to others in this dataset. The color coding should be seen as relative, not absolute data. More info found in the [Metrics Appendix](##appendix-1-metrics-so-many-metrics), and also some juicy academic papers in the footnotes on how these metrics affect children\'s development.
+                        """, unsafe_allow_html=True)
 
         else:
             st.info("No analysis history found. Run a new analysis to get started.")
@@ -495,7 +514,11 @@ st.subheader("FAQs")
 st.markdown(
 """
 1. **Why these metrics?**<br />
-I want to find ways to analyze videos in an objective, quantifiable way. I researched (well, asked ChatGPT in deep research mode) to come up with a list of metrics for determining the quality of a YouTube video from an early childhood development standpoint, which I then supplemented with my own Google searches. You can find the full list of metrics below in Table 1. There are so many metrics that I can implement, I picked a few that was easy to do and comes up a lot in discussions with other parents and teachers. 
+I want to find ways to analyze videos in an objective, quantifiable way. I researched (well, asked ChatGPT in deep research mode) to come up with a list of metrics for determining the quality of a YouTube video from an early childhood development standpoint, which I then supplemented with my own Google searches. You can find the full list of metrics below in [Appendix 1](#appendix-1-metrics-so-many-metrics). There are so many metrics that I can implement, I picked a few that was easy to do and comes up a lot in discussions with other parents and teachers. 
+    * Avg Scene Length: lower scene duration can overstimulate. 
+    * Motion Dynamism: high motion dynamism can cause visual fatigue. Metrics here are normalized to 0 (paint drying) to 100 (zoomies!). 
+    * Objects on Screen: busy environments can result in distractions and diminshed learning gains. 
+    * Color Saturation: high color use can cause visual fatigue. Metrics below are normalized to 0 (sad beige videos) to 100 (eighties are back!). 
 3. **Does this tell me which videos are bad?**<br />
 Not exactly. Similar to Nutrition Facts on the back of packaged foods, this tool is meant to shed some light on what goes into a video, and you can use that data to inform whether something works or doesn't work for your specific use case. In foods, there's nothing inherently "good" or "bad" about 12g of carbs, it's just a data (em.. datum) that describes the thing. I link papers I've found related to each metric. You can read them yourself and come to your own conclusions. 
 2. **Why did you make this?**<br />
@@ -506,36 +529,80 @@ AI was able to generate.. maybe 80% of the code, and then I had to do maybe 80% 
 Next up, I'd like to create a way to show a "composite" score which combines all these metrics. I also want to create an interface for showing metrics related to one video at a time. I should probably also work on a more mobile friendly UI. And of course implement more metrics, which I will probably just ask my handy dandy coding assistant to crawl through the table below and come up with methods to analyze these metrics.
 """, unsafe_allow_html=True)
 
+st.subheader("Appendix 1. Metrics! So many metrics!")
+
 st.markdown(
 """
-##### Table 1. Metrics! So many metrics!
-| **Domain**   | **Implemented** | **Metric**                               | **How to Measure**                                               | **Developmental Relevance**                                           |
-|--------------|-----------------|------------------------------------------|------------------------------------------------------------------|------------------------------------------------------------------------|
-| Attention    | x               | Average Scene Length                     | Calculate average scene length. Here, I use seconds.              | Rapid scene changes can disrupt sustained attention and overstimulate children, while slower pacing helps maintain focus.[^2] [^8] |
-| Attention    | x               | Motion Dynamism                          | Analyze motion rapidity within a scene.      | Fast paced videos (defined in terms of scene change  mostly, but researchers also discussion motion within a scene) led to children performing worse on executive function tasks[^8]. Fast paced videos can also cause visual fatigue[^9]|
-| Attention    | x               | Number of Objects on Screen                        | Look at number of distinct objects on the screen, generate average across all frames | Busier classroom environments resulted in children spending more time off task and demonstrated smaller learning gains, suggesting screen clutter may similarly distract young viewers.[^6] |
-| Attention    | x               | Color Saturation                         | Look at intensity of colors                                     | High color saturation may disrupt structured play and attention, as found in a study comparing colorful and non-colorful play areas for preschoolers.[^7] Excessive use of color also can cause visual fatique[^9] |
-| Attention    |                 | Content Coherence                        | Assess narrative logic; count disconnected segments.             | Coherent and logically sequenced stories support sustained attention and narrative understanding, aligning with best practices for educational video design.[^1] |
-| Attention    | x               | Video Length (Age-Appropriate Duration)  | Compare video length to age-appropriate guidelines.              | Videos should match young children's limited attention spans to support learning without fatigue or distraction.[^4] |
+
+RE: Attention
+
+* **Average Scene Length** (implemented)  
+  * *Why this matters*: Rapid scene changes can disrupt sustained attention and overstimulate children, while slower pacing helps maintain focus.[^2] [^8]  
+  * *How it's measured*: Calculate average scene length. Here, I use seconds.
+* **Motion Dynamism** (implemented)  
+  * *Why this matters*: Fast-paced videos (defined in terms of scene change mostly, but researchers also discuss motion within a scene) led to children performing worse on executive function tasks[^8]. Fast-paced videos can also cause visual fatigue[^9].  
+  * *How it's measured*: Analyze motion rapidity within a scene.
+* **Number of Objects on Screen** (implemented)  
+  * *Why this matters*: Busier classroom environments resulted in children spending more time off task and demonstrated smaller learning gains, suggesting screen clutter may similarly distract young viewers.[^6]  
+  * *How it's measured*: Look at number of distinct objects on the screen, generate average across all frames.
+* **Color Saturation** (implemented)  
+  * *Why this matters*: High color saturation may disrupt structured play and attention, as found in a study comparing colorful and non-colorful play areas for preschoolers.[^7] Excessive use of color also can cause visual fatigue[^9].  
+  * *How it's measured*: Look at intensity of colors.
+* **Content Coherence** (not implemented)  
+  * *Why this matters*: Coherent and logically sequenced stories support sustained attention and narrative understanding, aligning with best practices for educational video design.[^1]  
+  * *How it's measured*: Assess narrative logic; count disconnected segments.
+* **Video Length (Age-Appropriate Duration)** (implemented)  
+  * *Why this matters*: Videos should match young children's limited attention spans to support learning without fatigue or distraction.[^4]  
+  * *How it's measured*: Compare video length to age-appropriate guidelines.
+
 
 <details>
 <summary>...see more domains for the future</summary>
 
-| **Domain**   | **Implemented** | **Metric**                               | **How to Measure**                                               | **Developmental Relevance**                                           |
-|--------------|-----------------|------------------------------------------|------------------------------------------------------------------|------------------------------------------------------------------------|
-| Cognitive    |                 | Educational Content & Objectives         | Check for explicit learning goals or curriculum-based content.   | Content with clear educational goals supports school readiness and cognitive development, as emphasized by NIH findings on early learning stimulation.[^5] |
-| Cognitive    |                 | Interactive Prompting                    | Count prompts/questions directed at the viewer.                  | Prompting viewers to think and respond fosters active cognitive engagement and problem-solving, supporting recommendations for effective learning video design.[^1] |
-| Cognitive    |                 | Repetition for Reinforcement             | Tally repeated key words/concepts.                               | Repetition enhances memory retention and concept mastery, aligning with principles for maximizing learning through video content.[^1] |
-| Cognitive    |                 | Realism vs. Fantastical Content          | Rate realism vs. fantasy; note presence of surreal elements.     | Realistic content is easier to comprehend and process, while fantastical elements may overstimulate young viewers and hinder understanding, as discussed in digital media impact studies.[^2] |
-| Language     |                 | Vocabulary Diversity                     | Analyze transcript for unique words/new word use.                | Exposure to diverse vocabulary promotes robust language development in early years, consistent with research on media and child development.[^3] |
-| Language     |                 | Speech Pace & Clarity                    | Calculate words/minute; rate clarity.                            | Slower, clearer speech improves comprehension and language acquisition in young viewers, as shown in video learning research.[^1] |
-| Language     |                 | Interactive Dialogue                     | Count call-and-response moments and pauses.                      | Opportunities for verbal interaction, even if simulated, can strengthen expressive language skills in early learners.[^3] |
-| Language     |                 | Visual Language Supports                 | Note use of captions, labels, or relevant images.                | Pairing spoken words with visual cues like text or imagery enhances word recognition and comprehension, in line with multimedia learning principles.[^1] |
-| Emotional    |                 | Pro-Social/Emotional Lessons             | Count instances of sharing, emotional naming, empathy.           | Exposure to prosocial behaviors through media helps children learn empathy, cooperation, and emotional regulation strategies.[^3] |
-| Emotional    |                 | Calm Tone & Emotional Safety             | Assess tone, volume, sudden sounds; rate on calmness scale.      | Calm and predictable media environments help support emotional regulation and prevent overstimulation, a concern raised in studies on media’s impact on young brains.[^2] |
-| Emotional    |                 | Conflict & Violence Content              | Count conflicts/violence; review resolution quality.             | Frequent or poorly resolved conflict in media can model aggression, while peaceful resolution promotes healthy social-emotional development.[^3] |
-| Emotional    |                 | Emotional Engagement & Empathy           | Count emotion words, emotional scenes, empathetic moments.       | Content that models and names emotions builds emotional awareness and empathy, foundational skills in early childhood development.[^3] |
+RE: Cognition
 
+* **Educational Content & Objectives** (not implemented)  
+  * *Why this matters*: Content with clear educational goals supports school readiness and cognitive development, as emphasized by NIH findings on early learning stimulation.[^5]  
+  * *How it's measured*: Check for explicit learning goals or curriculum-based content.
+* **Interactive Prompting** (not implemented)  
+  * *Why this matters*: Prompting viewers to think and respond fosters active cognitive engagement and problem-solving, supporting recommendations for effective learning video design.[^1]  
+  * *How it's measured*: Count prompts/questions directed at the viewer.
+* **Repetition for Reinforcement** (not implemented)  
+  * *Why this matters*: Repetition enhances memory retention and concept mastery, aligning with principles for maximizing learning through video content.[^1]  
+  * *How it's measured*: Tally repeated key words/concepts.
+* **Realism vs. Fantastical Content** (not implemented)  
+  * *Why this matters*: Realistic content is easier to comprehend and process, while fantastical elements may overstimulate young viewers and hinder understanding, as discussed in digital media impact studies.[^2]  
+  * *How it's measured*: Rate realism vs. fantasy; note presence of surreal elements.
+
+RE: Language
+
+* **Vocabulary Diversity** (not implemented)  
+  * *Why this matters*: Exposure to diverse vocabulary promotes robust language development in early years, consistent with research on media and child development.[^3]  
+  * *How it's measured*: Analyze transcript for unique words/new word use.
+* **Speech Pace & Clarity** (not implemented)  
+  * *Why this matters*: Slower, clearer speech improves comprehension and language acquisition in young viewers, as shown in video learning research.[^1]  
+  * *How it's measured*: Calculate words/minute; rate clarity.
+* **Interactive Dialogue** (not implemented)  
+  * *Why this matters*: Opportunities for verbal interaction, even if simulated, can strengthen expressive language skills in early learners.[^3]  
+  * *How it's measured*: Count call-and-response moments and pauses.
+* **Visual Language Supports** (not implemented)  
+  * *Why this matters*: Pairing spoken words with visual cues like text or imagery enhances word recognition and comprehension, in line with multimedia learning principles.[^1]  
+  * *How it's measured*: Note use of captions, labels, or relevant images.
+
+RE: Emotions
+
+* **Pro-Social/Emotional Lessons** (not implemented)  
+  * *Why this matters*: Exposure to prosocial behaviors through media helps children learn empathy, cooperation, and emotional regulation strategies.[^3]  
+  * *How it's measured*: Count instances of sharing, emotional naming, empathy.
+* **Calm Tone & Emotional Safety** (not implemented)  
+  * *Why this matters*: Calm and predictable media environments help support emotional regulation and prevent overstimulation, a concern raised in studies on media’s impact on young brains.[^2]  
+  * *How it's measured*: Assess tone, volume, sudden sounds; rate on calmness scale.
+* **Conflict & Violence Content** (not implemented)  
+  * *Why this matters*: Frequent or poorly resolved conflict in media can model aggression, while peaceful resolution promotes healthy social-emotional development.[^3]  
+  * *How it's measured*: Count conflicts/violence; review resolution quality.
+* **Emotional Engagement & Empathy** (not implemented)  
+  * *Why this matters*: Content that models and names emotions builds emotional awareness and empathy, foundational skills in early childhood development.[^3]  
+  * *How it's measured*: Count emotion words, emotional scenes, empathetic moments.
 </details>
 
 [^1]: Brame C. J. (2016). Effective Educational Videos: Principles and Guidelines for Maximizing Student Learning from Video Content. CBE life sciences education, 15(4), es6. https://doi.org/10.1187/cbe.16-03-0125
