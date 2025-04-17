@@ -534,32 +534,31 @@ st.subheader("Appendix 1. Metrics! So many metrics!")
 st.markdown(
 """
 
-RE: Attention
+##### Attention Metrics
 
 * **Average Scene Length** (implemented)  
   * *Why this matters*: Rapid scene changes can disrupt sustained attention and overstimulate children, while slower pacing helps maintain focus.[^2] [^8]  
-  * *How it's measured*: Calculate average scene length. Here, I use seconds.
+  * *How it's measured*: Calculate average scene length. A "scene" is really a cut. The code compares the color histograms (Hue and Saturation channels) of the previous and current frames to compute a similarity score. If the score is below the given threshold, it is considered a scene change.
 * **Motion Dynamism** (implemented)  
   * *Why this matters*: Fast-paced videos (defined in terms of scene change mostly, but researchers also discuss motion within a scene) led to children performing worse on executive function tasks[^8]. Fast-paced videos can also cause visual fatigue[^9].  
-  * *How it's measured*: Analyze motion rapidity within a scene.
+  * *How it's measured*: Analyze motion rapidity within a scene. The code looks converts both the previous and current frames to grayscale, then computes the absolute difference between them. It raises the pixel-wise differences to a power (specified by `sensitivity`) to adjust sensitivity, and returns a motion score based on the mean and standard deviation of the result. A higher score indicates more motion or change between the two frames. If the frames have different shapes or are invalid, the function returns None. If no difference is detected (e.g., identical frames), the score will be 0. The raw score is normalized to 0-100. 
 * **Number of Objects on Screen** (implemented)  
   * *Why this matters*: Busier classroom environments resulted in children spending more time off task and demonstrated smaller learning gains, suggesting screen clutter may similarly distract young viewers.[^6]  
-  * *How it's measured*: Look at number of distinct objects on the screen, generate average across all frames.
+  * *How it's measured*: Look at number of distinct objects on the screen, generate average across all frames. This code processes the given frame by convertingCit to grayscale, applying canny edge detection, and then finding external contours. It filters out small contours based on a minimum area threshold, treating the remaining as meaningful objects.
 * **Color Saturation** (implemented)  
   * *Why this matters*: High color saturation may disrupt structured play and attention, as found in a study comparing colorful and non-colorful play areas for preschoolers.[^7] Excessive use of color also can cause visual fatigue[^9].  
-  * *How it's measured*: Look at intensity of colors.
-* **Content Coherence** (not implemented)  
-  * *Why this matters*: Coherent and logically sequenced stories support sustained attention and narrative understanding, aligning with best practices for educational video design.[^1]  
-  * *How it's measured*: Assess narrative logic; count disconnected segments.
+  * *How it's measured*: Look at intensity of colors. The code converts the input frame from BGR to HSV color space and extracts the Saturation (S) channel. It then computes the mean saturation value, focusing only on pixels with a saturation value greater than 50 to avoid including near grayscale or desaturated regions. If no such pixels are found, it falls back to the full-frame average. If the frame is completely empty or invalid, it returns 0. The code then normalizes the values on a 0-100 scale for display.
 * **Video Length (Age-Appropriate Duration)** (implemented)  
   * *Why this matters*: Videos should match young children's limited attention spans to support learning without fatigue or distraction.[^4]  
   * *How it's measured*: Compare video length to age-appropriate guidelines.
-
+* **Content Coherence** (not implemented)  
+  * *Why this matters*: Coherent and logically sequenced stories support sustained attention and narrative understanding, aligning with best practices for educational video design.[^1]  
+  * *How it's measured*: Assess narrative logic; count disconnected segments.   
 
 <details>
-<summary>...see more domains for the future</summary>
+<summary>...see more metrics for the future</summary>
 
-RE: Cognition
+##### Cognition
 
 * **Educational Content & Objectives** (not implemented)  
   * *Why this matters*: Content with clear educational goals supports school readiness and cognitive development, as emphasized by NIH findings on early learning stimulation.[^5]  
@@ -574,7 +573,7 @@ RE: Cognition
   * *Why this matters*: Realistic content is easier to comprehend and process, while fantastical elements may overstimulate young viewers and hinder understanding, as discussed in digital media impact studies.[^2]  
   * *How it's measured*: Rate realism vs. fantasy; note presence of surreal elements.
 
-RE: Language
+##### Language 
 
 * **Vocabulary Diversity** (not implemented)  
   * *Why this matters*: Exposure to diverse vocabulary promotes robust language development in early years, consistent with research on media and child development.[^3]  
@@ -589,7 +588,7 @@ RE: Language
   * *Why this matters*: Pairing spoken words with visual cues like text or imagery enhances word recognition and comprehension, in line with multimedia learning principles.[^1]  
   * *How it's measured*: Note use of captions, labels, or relevant images.
 
-RE: Emotions
+##### Emotions
 
 * **Pro-Social/Emotional Lessons** (not implemented)  
   * *Why this matters*: Exposure to prosocial behaviors through media helps children learn empathy, cooperation, and emotional regulation strategies.[^3]  
